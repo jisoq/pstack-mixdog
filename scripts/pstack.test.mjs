@@ -58,6 +58,8 @@ pstack {{PSTACK_VERSION}} at {{UPSTREAM_COMMIT}}. Skills: {{SKILL_NAMES}}.
 
 Read [the adapter](../../upstream/docs/harness/mixdog.md) and [alpha](../../upstream/skills/alpha/SKILL.md#steps).
 `,
+  "DIRECT-SKILL.md": readFileSync(join(SCRIPTS, "..", "harness", "DIRECT-SKILL.md"), "utf8"),
+  "direct-skills.json": "{}\n",
 };
 
 function git(dir, ...args) {
@@ -80,6 +82,19 @@ function commit(dir, files) {
   git(dir, "add", "-A");
   git(dir, "-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "update");
   return git(dir, "rev-parse", "HEAD");
+}
+
+// Reads one-line frontmatter values in any YAML quoting: plain, 'single' with '' escapes, or "double".
+function frontmatter(text) {
+  const lines = text.match(/^---\n([\s\S]*?)\n---\n/)[1].split("\n");
+  return Object.fromEntries(
+    lines.map((line) => {
+      const [, key, value] = line.match(/^([\w-]+):[ \t]*(.*?)[ \t]*$/);
+      if (value.startsWith("'")) return [key, value.slice(1, -1).replaceAll("''", "'")];
+      if (value.startsWith('"')) return [key, JSON.parse(value)];
+      return [key, value];
+    }),
+  );
 }
 
 function run(script, args) {
@@ -191,6 +206,46 @@ describe("build", () => {
     assert.match(result.stdout, /^FAIL .*SKILL\.md has unfilled placeholder \{\{UNKNOWN_VALUE\}\}$/m);
     assert.match(result.stdout, /^FAIL .*SKILL\.md links to \.\.\/\.\.\/upstream\/skills\/missing\/SKILL\.md, which is not a rendered file$/m);
     assert.ok(!existsSync(p.out));
+  });
+
+  test("renders a pstack-<name> wrapper for each listed skill that sends the reader to the entry skill", (t) => {
+    const description = `Run beta's "plain" steps: one line.`;
+    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: description }) } });
+    const result = p.build();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta"]);
+    const wrapper = p.read("skills/pstack-beta/SKILL.md");
+    const fields = frontmatter(wrapper);
+    assert.equal(fields.name, "pstack-beta");
+    assert.equal(fields.description, description);
+    assert.equal(fields.when_to_use, "User selects $pstack-beta; never inferred from the task.");
+    assert.ok(wrapper.includes("](../pstack/SKILL.md)"), wrapper);
+    assert.ok(wrapper.includes("`$pstack /beta`"), wrapper);
+    assert.equal(p.build("--check").status, 0);
+  });
+
+  test("fails on a listed skill missing upstream or a description over 100 characters or with < or >, naming the entry, and writes nothing", (t) => {
+    const list = { omega: "Run omega.", beta: "b".repeat(101), gamma: "g".repeat(100), delta: "Run <delta> steps." };
+    const p = project(t, { harness: { "direct-skills.json": JSON.stringify(list) } });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /^FAIL .*direct-skills\.json lists omega, which is not an upstream pstack skill$/m);
+    assert.match(result.stdout, /^FAIL .*direct-skills\.json has a 101-character description for beta, over 100$/m);
+    assert.match(result.stdout, /^FAIL .*direct-skills\.json has a description with < or > for delta, which Mixdog's skill validator rejects$/m);
+    assert.doesNotMatch(result.stdout, /gamma/);
+    assert.ok(!existsSync(p.out));
+  });
+
+  test("removing a listed skill deletes its wrapper on the next build", (t) => {
+    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: "Run beta.", gamma: "Run gamma." }) } });
+    assert.equal(p.build().status, 0);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta", "pstack-gamma"]);
+
+    write(p.harness, { "direct-skills.json": JSON.stringify({ beta: "Run beta." }) });
+    const result = p.build();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta"]);
+    assert.equal(p.build("--check").status, 0);
   });
 
   test("fails when the upstream generator changed shape", (t) => {
