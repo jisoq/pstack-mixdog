@@ -55,12 +55,16 @@ function rel(base, path) {
   return relative(base, path).split(sep).join("/");
 }
 
-// Source exclusions only apply to upstream copies; the output inventory must see every file so stale ones get reconciled.
-function walk(dir, skipSourceJunk = true) {
+const SOURCE_SKIP = new Set([".DS_Store", "node_modules"]);
+// Upstream scripts install their own dependencies into node_modules at run time (watch-pr's bootstrap), so the
+// output inventory leaves those folders alone; every other stale file in an owned path is still reconciled.
+const OUTPUT_SKIP = new Set(["node_modules"]);
+
+function walk(dir, skip = SOURCE_SKIP) {
   return readdirSync(dir).flatMap((name) => {
-    if (skipSourceJunk && (name === ".DS_Store" || name === "node_modules")) return [];
+    if (skip.has(name)) return [];
     const path = join(dir, name);
-    return statSync(path).isDirectory() ? walk(path, skipSourceJunk) : [path];
+    return statSync(path).isDirectory() ? walk(path, skip) : [path];
   });
 }
 
@@ -224,7 +228,7 @@ function main() {
   const onDisk = new Map(
     OWNED.map((name) => join(OUT, name))
       .filter((path) => existsSync(path))
-      .flatMap((path) => (statSync(path).isDirectory() ? walk(path, false) : [path]))
+      .flatMap((path) => (statSync(path).isDirectory() ? walk(path, OUTPUT_SKIP) : [path]))
       .map((path) => [rel(OUT, path), file(path)]),
   );
   const same = (want, have) => want.bytes.equals(have.bytes) && want.executable === have.executable;

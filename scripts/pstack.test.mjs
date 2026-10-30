@@ -300,18 +300,19 @@ describe("build", () => {
     untouched();
   });
 
-  test("stale node_modules and .DS_Store files in the output are drift and get deleted", (t) => {
+  test("runtime-installed node_modules survive and are not drift, while a stray .DS_Store is deleted", (t) => {
     const p = project(t);
     assert.equal(p.build().status, 0);
-    write(p.out, { "upstream/node_modules/x/index.js": "stale\n", "upstream/.DS_Store": "stale\n" });
+    write(p.out, { "upstream/skills/beta/node_modules/x/index.js": "installed\n", "upstream/.DS_Store": "stale\n" });
 
     const drift = p.build("--check");
     assert.equal(drift.status, 1, drift.stdout);
-    assert.match(drift.stdout, /out of date in 2 paths/);
+    assert.match(drift.stdout, /out of date in 1 paths/);
 
     assert.equal(p.build().status, 0);
-    assert.ok(!existsSync(join(p.out, "upstream/node_modules")));
+    assert.equal(readFileSync(join(p.out, "upstream/skills/beta/node_modules/x/index.js"), "utf8"), "installed\n");
     assert.ok(!existsSync(join(p.out, "upstream/.DS_Store")));
+    assert.equal(p.build("--check").status, 0);
   });
 });
 

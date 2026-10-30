@@ -68,6 +68,7 @@ Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route
 
 In Mixdog it configures the five pstack agents instead of writing a rule. Follow its steps with these changes.
 
+- Dependencies, before step 1. Run every check in the Dependencies section. Show the missing ones with the playbooks that need them, then ask with `ask_user`, multi-select, which to install. Install only the chosen ones, one at a time, with the row's command, and rerun its check. Result: each dependency is present or declined, and the reply names the declined ones.
 - Detect. The detected models are the rows `setup` `list_models` returns for each provider that `setup` `status providers` reports as authenticated, with the efforts each row lists. Auto counts as an effort when `setup` `status features` reports `autoEffort` ready.
 - Load current state. Read each of the five agents with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the description and body from `<pstack>/../harness/agents.md`. Its default route from that file is the starting choice. A default whose provider or model is not detected makes that agent need a choice, as step 3(c) says.
 - Budget. Apply the chosen budget's target effort to every route that has an explicit effort, using the nearest effort the model lists at or below the target. Leave a route on Auto as it is.
@@ -92,9 +93,24 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 | --- | --- |
 | `.mjs`, such as `check-plan.mjs` in Multi-phase plan | `node <path>` through `shell`. |
 | The `statechart` launcher in the statechart skill | It is a POSIX `sh` script that picks Node 22.18 or later. Run `node --disable-warning=ExperimentalWarning <skill dir>/scripts/statechart.ts <args>` through `shell` instead. |
-| `watch-pr` in Babysit and Shipping, and in the babysit loop of Autopilot-full and Autopilot-stack owners | It runs on `bun`, which also installs its dependencies. Run it through `shell` when Bun is installed. |
+| `watch-pr` in Babysit and Shipping, and in the babysit loop of Autopilot-full and Autopilot-stack owners | It runs on `bun`, and its first run installs its own dependencies into the script folder. Run `bun <path>/watch-pr <args>` through `shell`, because Windows ignores the `#!` line. Until Mixdog restarts after a Bun install, `bun` may be reachable only as `$env:USERPROFILE\.bun\bin\bun.exe`. |
 | `.sh`, such as `worktree-audit.sh` in Worktree cleanup and `log.sh` in show-me-your-work | They need bash. When `bash` is not on PATH, run Git for Windows' `& 'C:\Program Files\Git\bin\bash.exe' <path> <args>`. |
 | A missing runtime | Write `Skipped in Mixdog: <step>. <runtime> is not installed.` and go on, as for Cursor-only features. Without bash, show-me-your-work appends its row directly, as the skill allows. |
+
+## Dependencies
+
+`setup-pstack` checks these and installs only the ones the user approves.
+
+| Dependency | Needed by | Check | Install on Windows |
+| --- | --- | --- | --- |
+| git | Every playbook that touches a repository | `git --version` | `winget install --id Git.Git -e` |
+| GitHub CLI | PR steps, Babysit, Shipping, Autopilot, recall, why | `gh --version`, then `gh auth status` | `winget install --id GitHub.cli -e`. The user signs in with `gh auth login` through the `terminal` tool. |
+| Node 22.18 or later | statechart, `check-plan.mjs` | `node --version` | `winget install --id OpenJS.NodeJS.LTS -e` |
+| Bun | `watch-pr` | `bun --version`, or `& "$env:USERPROFILE\.bun\bin\bun.exe" --version` | Download `https://bun.sh/install.ps1` to a file, read it, then run `powershell -NoProfile -ExecutionPolicy Bypass -File <file>`. |
+| bash | `worktree-audit.sh`, `log.sh` | `bash --version`, or `Test-Path 'C:\Program Files\Git\bin\bash.exe'` | Ships with Git for Windows. |
+| mise | statechart, whose first run installs TLC and Java with it | `mise --version` | `winget install --id jdx.mise -e` |
+
+A dependency the user declines stays missing, and its steps follow the missing-runtime rule in Scripts. A `winget` install can show a Windows permission prompt. A new PATH entry reaches Mixdog's `shell` only after Mixdog restarts, so use the full path until then.
 
 ## Cursor-only features
 
