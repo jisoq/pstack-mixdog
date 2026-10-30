@@ -37,6 +37,8 @@ const COMMAND = "node scripts/build.mjs";
 const LINK = /\]\(([^)\s]+)\)/g;
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PLACEHOLDER = /\{\{[A-Z][A-Z0-9_]*\}\}/g;
+// Mixdog's skill validator warns above this, and its UI shows the description.
+const DESCRIPTION_MAX = 100;
 // Names that Mixdog maps but upstream's Claude Code tree does not need to.
 const EXTRA_TERMS = [
   { key: "cursor-team-kit", re: /cursor-team-kit/ },
@@ -103,7 +105,8 @@ function prune(dir) {
 }
 
 function fail(problems) {
-  for (const problem of problems) console.log(`FAIL ${problem}`);
+  // Every wrapper renders from one template, so a template problem repeats once per wrapper.
+  for (const problem of new Set(problems)) console.log(`FAIL ${problem}`);
   return 1;
 }
 
@@ -218,10 +221,32 @@ function main() {
   const version = `${manifest.version}+mixdog.${lock.commit.slice(0, 7)}`;
   const plugin = { name: "pstack", displayName: "pstack", version, description, author, homepage, repository, license, keywords };
   rendered.set("plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`));
-  for (const placeholder of new Set(entry.match(PLACEHOLDER))) problems.push(`${show(harnessSkill)} has unfilled placeholder ${placeholder}`);
-  for (const [, href] of entry.matchAll(LINK)) {
-    const target = linkPath(ENTRY, href);
-    if (target !== undefined && !has(rendered, target)) problems.push(`${show(harnessSkill)} links to ${href}, which is not a rendered file`);
+  const directList = join(HARNESS, "direct-skills.json");
+  const directTemplate = join(HARNESS, "DIRECT-SKILL.md");
+  const template = readFileSync(directTemplate, "utf8");
+  const harnessSkills = [{ source: harnessSkill, path: ENTRY, text: entry }];
+  for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
+    if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not an upstream pstack skill`);
+    if (typeof description !== "string" || description.trim() === "") problems.push(`${show(directList)} has no description for ${name}`);
+    else if (/[\r\n]/.test(description)) problems.push(`${show(directList)} has a multi-line description for ${name}`);
+    else if (description.length > DESCRIPTION_MAX) {
+      problems.push(`${show(directList)} has a ${description.length}-character description for ${name}, over ${DESCRIPTION_MAX}`);
+    }
+    if (typeof description === "string" && /[<>]/.test(description)) {
+      problems.push(`${show(directList)} has a description with < or > for ${name}, which Mixdog's skill validator rejects`);
+    }
+    const path = `skills/pstack-${name}/SKILL.md`;
+    // A JSON string is a YAML double-quoted scalar, so any one-line description stays one frontmatter value.
+    const text = template.replaceAll("{{NAME}}", () => name).replaceAll("{{DESCRIPTION}}", () => JSON.stringify(description));
+    rendered.set(path, textFile(text));
+    harnessSkills.push({ source: directTemplate, path, text });
+  }
+  for (const { source, path, text } of harnessSkills) {
+    for (const placeholder of new Set(text.match(PLACEHOLDER))) problems.push(`${show(source)} has unfilled placeholder ${placeholder}`);
+    for (const [, href] of text.matchAll(LINK)) {
+      const target = linkPath(path, href);
+      if (target !== undefined && !has(rendered, target)) problems.push(`${show(source)} links to ${href}, which is not a rendered file`);
+    }
   }
   if (problems.length > 0) return fail(problems);
 
