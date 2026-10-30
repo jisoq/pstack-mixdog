@@ -27,9 +27,9 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 | Cursor | Mixdog |
 | --- | --- |
 | Which agent to spawn | The pstack agent of the spawn's role, from the role table in Models. Never spawn a Mixdog agent outside that table for pstack work. |
-| `subagent_type: generalPurpose` | The role's pstack agent. The brief is the prompt the skill prescribes. |
+| `subagent_type: generalPurpose` | The role's pstack agent. When the skill builds the prompt from a template file, the brief gives that file's absolute path, not its text: "Read `<path>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." Then give each placeholder's value under its name, and the absolute paths of the files the skill appends, in order. Paste every subagent report the skill passes on exactly as it arrived, with no summary or comment, and add nothing the skill or this adapter does not ask for. Any other prompt the skill prescribes is the brief as written. |
 | `poteto-agent` | The role's pstack agent. A delegate with no named role goes to `pstack-code` for code and to `pstack-judge` for prose or judgment. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
-| `comment-sicko` | `pstack-code`. The brief is the body of `<pstack>/agents/comment-sicko.md`, then the scope. |
+| `comment-sicko` | `pstack-code`. The brief is "Read `<pstack>/agents/comment-sicko.md` in full and follow it.", then the scope. |
 | A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Stop and run `setup-pstack`, which creates and routes the five agents. |
 | `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." Check `git status` afterward. |
 | `readonly: false` | The default. Connectors stay available either way. |

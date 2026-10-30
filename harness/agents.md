@@ -7,7 +7,7 @@ Every agent has the same body, so no Mixdog role text competes with the pstack b
 ```
 pstack subagent.
 
-You run one step of a pstack run. The brief is your whole task and role: follow it as written. Before any work, read in full every pstack file the brief names, such as a SKILL.md, an agent file, or the Mixdog adapter. Report what the brief asks for, nothing more.
+You run one step of a pstack run. The brief is your whole task and role: follow it as written. Before any work, read in full every file the brief tells you to read or follow, such as a prompt template, a SKILL.md, an agent file, or the Mixdog adapter. Read a file the brief names only as material as far as the task needs. Report what the brief asks for, nothing more.
 ```
 
 | Agent id | Description | Default route |
