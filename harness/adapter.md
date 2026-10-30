@@ -26,10 +26,11 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 
 | Cursor | Mixdog |
 | --- | --- |
-| `subagent_type: generalPurpose` | `agent: "worker"`. |
-| `poteto-agent` | `agent: "worker"`, or `"heavy-worker"` for the `hardest tasks` role. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
-| `comment-sicko` | `agent: "worker"`. The brief is the body of `<pstack>/agents/comment-sicko.md`, then the scope. |
-| An agent named above that the session's agent list lacks | The closest implementation agent the list offers. Say so. |
+| Which agent to spawn | The pstack agent of the spawn's role, from the role table in Models. Never spawn a Mixdog agent outside that table for pstack work. |
+| `subagent_type: generalPurpose` | The role's pstack agent. The brief is the prompt the skill prescribes. |
+| `poteto-agent` | The role's pstack agent. A delegate with no named role goes to `pstack-code` for code and to `pstack-judge` for prose or judgment. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
+| `comment-sicko` | `pstack-code`. The brief is the body of `<pstack>/agents/comment-sicko.md`, then the scope. |
+| A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Stop and run `setup-pstack`, which creates and routes the five agents. |
 | `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." Check `git status` afterward. |
 | `readonly: false` | The default. Connectors stay available either way. |
 | `environment: "cloud"` | A managed worktree on this machine. Create it with the `git` tool (`git worktree add -b <branch>`) and spawn the agent with `cwd` set to the worktree path it returns. Name the branch or commit in the brief. These workers run locally, so at most two that build or test run at once, and the rest wait. |
@@ -42,26 +43,37 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 
 ## Models
 
+Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route owns its model, effort, Auto effort, and speed. `<pstack>/../harness/agents.md` defines the agents and their default routes.
+
+| pstack role (the `setup-pstack` role lines) | Mixdog agent |
+| --- | --- |
+| `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb` | `pstack-code` |
+| `hardest tasks` | `pstack-hard` |
+| `judgment and prose`, `how explainer`, `why synthesizer`, `reflect judgment, divergent, synthesizer` | `pstack-judge` |
+| `how explorer`, `why investigators`, `reflect tooling` | `pstack-scout` |
+| `swarm workers`, and every verification the Subagents section sends to that role | `pstack-verify` |
+| `arena runners`, `architect runners`, `interrogate reviewers` | Two entries, `pstack-judge` and `pstack-code`. One subagent runs per entry. |
+| `arena cross-judge pool` | `pstack-judge`, then `pstack-code`. The first whose model family differs from the parent's judges. |
+
 | Cursor | Mixdog |
 | --- | --- |
-| The `pstack-models.mdc` rule, `~/.cursor/rules/pstack-models.mdc` | `~/.mixdog/data/pstack/pstack-models.md`. Mixdog never loads it into a session, so read it at the start of every pstack run. If the file or a role's line is missing, run `setup-pstack` first. Its re-run keeps the lines that exist. |
-| A role value `<provider>/<model> <effort>`, such as `anthropic-oauth/claude-opus-5-5 xhigh` | `agent` spawn with `provider`, `model`, and `effort`. The user chose these lines in `setup-pstack`, so they are the explicit model choice the `agent` tool asks for. |
-| `inherit-parent` or `auto` | Omit `provider`, `model`, and `effort`. The agent runs on its own Mixdog route. For pstack's family rules it counts as the parent's family. |
-| A default slug in a skill, such as `claude-<family>-<version>-<effort>[-fast]`, `grok-*`, or `gpt-*` | Never passed. The role's line in the models file replaces it. Where a skill says to fall back to its default after a rejection, skip that step and go on with the error's candidates. |
-| Raising or lowering the reasoning level | Change `effort` within the levels `setup` `list_models` reports for that model. |
-| `-fast` and fast mode | Drop it. `agent` has no speed switch. |
-| A rejected slug | An `agent` spawn error that names the model as unknown or ambiguous. Its candidates are the list of valid slugs. |
-| A model family | The model id's first word, such as `claude`, `gpt`, `grok`, or `gemini`. |
+| The `pstack-models.mdc` rule, `~/.cursor/rules/pstack-models.mdc` | The routes of the five pstack agents. There is no models file. Read a route with `setup` `read_definition` when a family rule needs it. |
+| `model` on a spawn | Never pass `model`, `provider`, or `effort`. The agent's route decides. |
+| A role value or a default slug in a skill, such as `claude-<family>-<version>-<effort>[-fast]`, `grok-*`, `gpt-*`, `inherit-parent`, or `auto` | Ignored. The role table above replaces every model value a skill names, its defaults and its rejection fallbacks included. |
+| Raising or lowering the reasoning level, `-fast`, and fast mode | Does not apply. The route sets effort and speed, and a route on Auto picks its effort per turn. |
+| A rejected slug | Does not occur. A spawn refused because the agent is unknown or turned off means `setup-pstack` must run. |
+| A model family | The first word of the route's model id, such as `claude` or `gpt`. |
 
 ## setup-pstack
 
-Follow its steps with these changes.
+In Mixdog it configures the five pstack agents instead of writing a rule. Follow its steps with these changes.
 
-- Detect. The detected models are the rows `setup` `list_models` returns for each provider that `setup` `status providers` reports as authenticated. Write a real model as `<provider>/<model> <effort>`, with an effort from that row's efforts. The effort is the last token, so the budget step works as written.
-- Defaults. Map each default slug to the detected model of the same family and version at the slug's effort, and drop `-fast`. So `claude-opus-5-5-xhigh` becomes `anthropic-oauth/claude-opus-5-5 xhigh` when that provider offers it. A slug with no such model makes its role need a choice, as step 3(c) says.
-- Ask with `ask_user`. It takes two to four options per question. Offer the four budget labels as written. Show the role table and long model lists in plain text, then ask.
-- Write `~/.mixdog/data/pstack/pstack-models.md` with no frontmatter, then the comment lines, the `# budget` line, and one line per role from step 5. Overwrite the whole file. Never put the role lines in `AGENTS.md`, `CLAUDE.md`, or a Mixdog setting.
-- Confirm. Say that it applies from the next pstack run, in any conversation.
+- Detect. The detected models are the rows `setup` `list_models` returns for each provider that `setup` `status providers` reports as authenticated, with the efforts each row lists. Auto counts as an effort when `setup` `status features` reports `autoEffort` ready.
+- Load current state. Read each of the five agents with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the description and body from `<pstack>/../harness/agents.md`. Its default route from that file is the starting choice. A default whose provider or model is not detected makes that agent need a choice, as step 3(c) says.
+- Budget. Apply the chosen budget's target effort to every route that has an explicit effort, using the nearest effort the model lists at or below the target. Leave a route on Auto as it is.
+- Show and confirm. Show the role table from Models and each agent's route, then ask with `ask_user` whether to accept or change specific agents. It takes two to four options per question, so show long model lists in plain text first. Refuse a choice that puts `pstack-judge` and `pstack-code` on the same model family, and say that every panel needs one of each.
+- Write. Apply each route with `setup` `set_agent_route`, setting `autoEffort` explicitly. Never change any other agent's route, and never write a models file, `AGENTS.md`, or `CLAUDE.md`.
+- Confirm. Say that open conversations pick up the routes from their next turn.
 
 ## Paths
 
