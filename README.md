@@ -11,9 +11,9 @@ Mixdog 대화창에서 두 가지를 요청합니다. PC마다 한 번이면 됩
 1. "`jisoq/pstack-mixdog`을 플러그인으로 등록해줘" (`setup` `add_plugin`)
 2. "pstack-mixdog 저장소의 `harness/WORKFLOW.md` 내용으로 Poteto mode 워크플로우 만들어줘" (`setup` `create_definition`, 종류 workflow). 워크플로우는 플러그인에 담아 배포할 수 없어 따로 만듭니다. 전역 활성 워크플로우는 바뀌지 않습니다.
 
-3. `$pstack /setup-pstack` 실행. 먼저 필요한 프로그램(git, GitHub CLI, Node, Bun, bash, mise)이 있는지 확인하고, 없는 것은 어느 플레이북에 필요한지 보여 준 뒤 설치할 것을 고르게 합니다. 고른 것만 설치합니다. 이어서 pstack 전용 에이전트 다섯 개를 만들고 모델을 배정합니다. 건너뛰어도 첫 `$pstack` 실행 때 에이전트가 없으면 이 단계가 먼저 진행됩니다.
+3. `$pstack /setup-pstack` 실행. 먼저 필요한 프로그램(git, GitHub CLI, Node, Bun, bash, mise)이 있는지 확인하고, 없는 것은 어느 플레이북에 필요한지 보여 준 뒤 설치할 것을 고르게 합니다. 고른 것만 설치합니다. 이어서 pstack 전용 에이전트 다섯 개를 만들고(이미 있으면 설명과 본문을 이 저장소의 정의에 맞추고) 모델을 배정합니다. 건너뛰어도 첫 `$pstack` 실행 때 에이전트가 없으면 이 단계가 먼저 진행됩니다.
 
-업데이트는 "pstack 플러그인 업데이트해줘"(`setup` `update_plugin`)로 받습니다.
+업데이트는 "pstack 플러그인 업데이트해줘"(`setup` `update_plugin`)로 받습니다. 받은 뒤 `$pstack /setup-pstack`을 한 번 실행하면 에이전트 본문이 새 버전에 맞춰집니다. 모델 배정은 그대로 둡니다.
 
 ### 기본 모델 배정
 

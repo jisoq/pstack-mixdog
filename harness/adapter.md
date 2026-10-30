@@ -27,11 +27,11 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 | Cursor | Mixdog |
 | --- | --- |
 | Which agent to spawn | The pstack agent of the spawn's role, from the role table in Models. Never spawn a Mixdog agent outside that table for pstack work. |
-| `subagent_type: generalPurpose` | The role's pstack agent. When the skill builds the prompt from a template file, the brief gives that file's absolute path, not its text: "Read `<path>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." Then give each placeholder's value under its name, and the absolute paths of the files the skill appends, in order. Paste every subagent report the skill passes on exactly as it arrived, with no summary or comment, and add nothing the skill or this adapter does not ask for. Any other prompt the skill prescribes is the brief as written. |
+| `subagent_type: generalPurpose` | The role's pstack agent. When the skill builds the prompt from a template file, the brief gives that file's absolute path, not its text: "Read `<path>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." Then give each placeholder's value under its name, and the absolute paths of the files the skill appends, in order. Pass subagent reports as Reports between subagents says, and add nothing the skill or this adapter does not ask for. Any other prompt the skill prescribes is the brief as written. |
 | `poteto-agent` | The role's pstack agent. A delegate with no named role goes to `pstack-code` for code and to `pstack-judge` for prose or judgment. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
 | `comment-sicko` | `pstack-code`. The brief is "Read `<pstack>/agents/comment-sicko.md` in full and follow it.", then the scope. |
 | A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Stop and run `setup-pstack`, which creates and routes the five agents. |
-| `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." Check `git status` afterward. |
+| `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." A subagent that writes a report file gets "Do not edit files, stage, or commit, except your report file." instead. Check `git status` afterward. |
 | `readonly: false` | The default. Connectors stay available either way. |
 | `environment: "cloud"` | A managed worktree on this machine. Create it with the `git` tool (`git worktree add -b <branch>`) and spawn the agent with `cwd` set to the worktree path it returns. Name the branch or commit in the brief. These workers run locally, so at most two that build or test run at once, and the rest wait. |
 | `environment: "local"` | Omit. The agent works in the current Project folder. |
@@ -40,6 +40,16 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 | `resume` | `agent` with `type: "send"` and the same `tag`. A same-tag spawn respawns an expired agent with its full brief. |
 | `file_attachments` | `attachments`, with the paths. |
 | `model` | See Models. |
+
+## Reports between subagents
+
+When a skill hands one subagent's report to another subagent, such as how's explorers to its explainer, why's investigators to its synthesizer, or reflect's reviewers to its synthesizer, the report goes through a file. Cursor inlines the report. Mixdog uses a file so that you never copy one.
+
+- Before those spawns, pick a new folder, `<scratch>/pstack/<skill>-<HHmmss>`, where `<scratch>` is the `TEMP` of `shell`.
+- End each reporting brief with "Write your full report to `<folder>/<tag>.md` with `edit`, then reply with only that path."
+- In the receiving brief, the report placeholder holds "Read each file in full:" and the paths.
+- Do not read the report files yourself, unless the skill gives you a step that uses a report.
+- A reply that names no file is a failed spawn. Ask again with `agent` `send` to the same tag.
 
 ## Models
 
@@ -70,7 +80,7 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 
 - Dependencies, before step 1. Run every check in the Dependencies section. Show the missing ones with the playbooks that need them, then ask with `ask_user`, multi-select, which to install. Install only the chosen ones, one at a time, with the row's command, and rerun its check. Result: each dependency is present or declined, and the reply names the declined ones.
 - Detect. The detected models are the rows `setup` `list_models` returns for each provider that `setup` `status providers` reports as authenticated, with the efforts each row lists. Auto counts as an effort when `setup` `status features` reports `autoEffort` ready.
-- Load current state. Read each of the five agents with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the description and body from `<pstack>/../harness/agents.md`. Its default route from that file is the starting choice. A default whose provider or model is not detected makes that agent need a choice, as step 3(c) says.
+- Load current state. Read each of the five agents with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the description and body from `<pstack>/../harness/agents.md`. When an existing one's description or body differs from that file, save the file's description and body with `setup` `save_definition`. Its route stays as it is. Its default route from that file is the starting choice. A default whose provider or model is not detected makes that agent need a choice, as step 3(c) says.
 - Budget. Apply the chosen budget's target effort to every route that has an explicit effort, using the nearest effort the model lists at or below the target. Leave a route on Auto as it is.
 - Show and confirm. Show the role table from Models and each agent's route, then ask with `ask_user` whether to accept or change specific agents. It takes two to four options per question, so show long model lists in plain text first. Refuse a choice that puts `pstack-judge` and `pstack-code` on the same model family, and say that every panel needs one of each.
 - Write. Apply each route with `setup` `set_agent_route`, setting `autoEffort` explicitly. Never change any other agent's route, and never write a models file, `AGENTS.md`, or `CLAUDE.md`.
