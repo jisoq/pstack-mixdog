@@ -79,10 +79,18 @@ pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 �
 
 ## 알려진 제약
 
-- 업스트림의 Bun 스크립트(`watch-pr`, `statechart`, `*.ts`)와 bash 스크립트(`*.sh`)는 해당 런타임이 있어야 실행됩니다. 없으면 그런 단계는 `Skipped in Mixdog: ...` 한 줄을 남기고 넘어갑니다. Bun을 설치하면 그대로 동작합니다.
+- 업스트림 스크립트의 런타임은 아래와 같습니다. 런타임이 없으면 그 단계는 `Skipped in Mixdog: ...` 한 줄을 남기고 넘어갑니다.
+
+  | 스크립트 | 쓰는 곳 | 필요한 런타임 |
+  | --- | --- | --- |
+  | `watch-pr` (PR 상태 감시) | Babysit, Shipping, Autopilot-full과 Autopilot-stack의 PR 담당 에이전트 | **Bun** |
+  | `worktree-audit.sh` | Worktree cleanup | bash (Git for Windows에 포함) |
+  | `log.sh` (결정 기록) | show-me-your-work (긴 작업, 자리 비우는 작업) | bash. 없으면 행을 직접 추가 |
+  | `statechart` | statechart 스킬 | Node 22.18 이상 (TLA+ 검사기는 별도) |
+  | `check-plan.mjs` | Multi-phase plan | Node |
 - Cursor Automations, Bugbot 설정, Cursor 클라우드 에이전트 자체가 필요한 단계도 같은 방식으로 건너뜁니다. 클라우드 워커는 이 PC의 관리형 worktree로 바뀌고, 빌드나 테스트를 하는 워커는 동시에 두 개까지만 돌립니다.
 - 업스트림 스킬에 적힌 모델(`grok-4.7-xhigh-fast` 등)은 쓰지 않습니다. 역할마다 정해진 `pstack-*` 에이전트의 Mixdog 모델 설정을 씁니다. 업스트림의 "작업 난이도에 따라 effort를 한 단계 올리거나 내리기"도 적용되지 않으며, 대신 Auto effort 에이전트가 매 턴 effort를 고릅니다.
-- 커밋, 푸시, PR, 머지는 요청이 그 단계를 포함할 때만 진행합니다(직접 요청, Babysit이나 Shipping 같은 해당 플레이북 선택, "자는 동안 머지까지" 같은 전권 위임). 그렇지 않으면 그 직전 단계에서 멈추고 남은 단계를 알려줍니다.
+- 커밋, 푸시, PR, 머지 단계에 이르면 그 직전에 "PR로 올릴까요?"라고 묻습니다(커밋, 푸시, PR 생성 / 로컬 커밋만 / 커밋하지 않음). 답은 그 실행이 끝날 때까지 유지됩니다. 요청에 이미 그 단계가 있거나 "자는 동안 머지까지" 같은 전권 위임이 있으면 묻지 않습니다.
 
 ## 끄기와 제거
 

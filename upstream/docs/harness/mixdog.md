@@ -7,7 +7,7 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 - pstack runs only for the task the user routed to it. The user routes a task by selecting `$pstack`, by naming pstack or a pstack skill, or by switching the conversation to the Poteto mode workflow. Other work in Mixdog ignores pstack.
 - While it runs, the pstack skill decides the procedure. That covers the playbook and its todolist, the principles, when to delegate and to whom, review, verification, and the shape of the reply. It replaces the guidance of Mixdog's active workflow and orchestration mode for that task.
 - Mixdog's tool schemas, tool routing, and safety rules still decide how each step runs. That includes the rules on destructive actions and on never discarding work you did not create.
-- A commit, push, PR, merge, release, or deploy step runs only when the user's request covers it. The request covers it when it names the step, when the user picked a playbook built around it (Hillclimb's commits, Babysit, Shipping, Autopilot-full, Autopilot-stack, Opening a PR), or under a full-autonomy grant ("going to bed, land the stack", "don't ask me before committing"). Otherwise finish every step before it, leave the change ready, and name the pending step in the reply. pstack's Always pause list applies on top of this.
+- A commit, push, PR, merge, release, or deploy step needs the user's yes, and you ask for it instead of expecting it in the request. Finish every step before the first such step, then ask with `ask_user` whether to put the work up as a PR. Offer three options: commit, push, and open the PR as Opening a PR says; commit locally only; leave the change uncommitted. The answer covers the rest of that run. A playbook that commits along the way, such as Hillclimb, asks once before its first commit. Skip the question only when the request already asked for that step or granted full autonomy ("going to bed, land the stack", "don't ask me before committing"). pstack's Always pause list applies on top of this.
 - Mixdog's language setting picks the reply language. pstack's Writing the reply section decides everything else about the reply.
 
 ## Tools
@@ -90,10 +90,11 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 
 | Script | Mixdog |
 | --- | --- |
-| `.mjs` | `node <path>` through `shell`. |
-| `.ts` scripts and the `watch-pr` and `statechart` launchers | They run on `bun`. Run them through `shell` when Bun is installed. |
-| `.sh` | They need bash. Git for Windows ships `C:\Program Files\Git\bin\bash.exe`. |
-| A missing runtime | Write `Skipped in Mixdog: <step>. <runtime> is not installed.` and go on, as for Cursor-only features. |
+| `.mjs`, such as `check-plan.mjs` in Multi-phase plan | `node <path>` through `shell`. |
+| The `statechart` launcher in the statechart skill | It is a POSIX `sh` script that picks Node 22.18 or later. Run `node --disable-warning=ExperimentalWarning <skill dir>/scripts/statechart.ts <args>` through `shell` instead. |
+| `watch-pr` in Babysit and Shipping, and in the babysit loop of Autopilot-full and Autopilot-stack owners | It runs on `bun`, which also installs its dependencies. Run it through `shell` when Bun is installed. |
+| `.sh`, such as `worktree-audit.sh` in Worktree cleanup and `log.sh` in show-me-your-work | They need bash. When `bash` is not on PATH, run Git for Windows' `& 'C:\Program Files\Git\bin\bash.exe' <path> <args>`. |
+| A missing runtime | Write `Skipped in Mixdog: <step>. <runtime> is not installed.` and go on, as for Cursor-only features. Without bash, show-me-your-work appends its row directly, as the skill allows. |
 
 ## Cursor-only features
 
