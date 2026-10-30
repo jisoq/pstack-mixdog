@@ -21,6 +21,7 @@ const { values: options } = parseArgs({
     lock: { type: "string", default: join(ROOT, "upstream.lock.json") },
     harness: { type: "string" },
     out: { type: "string" },
+    reviewed: { type: "boolean", default: false },
   },
 });
 const CACHE = resolve(options.cache);
@@ -63,14 +64,17 @@ Check whether harness/adapter.md (and harness/SKILL.md) need the same change.
   console.log(`No previous lock. Pinning ${options.ref} at ${commit}.`);
 }
 
-const lock = { repository: options.repo, ref: options.ref, commit, syncedAt: new Date().toISOString() };
-writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
-
 // The generated plugin is live in Mixdog, so a mapping change must not ship before a human reviews it.
-if (review) {
-  console.log("Not building. Review the diffs above, update harness/adapter.md if needed, then run `node scripts/build.mjs`.");
+// The lock keeps the old commit until then, so every rerun stops here again.
+if (review && !options.reviewed) {
+  console.log(
+    "Not building. Review the diffs above, update harness/adapter.md (and harness/SKILL.md) if needed, then run `node scripts/sync.mjs --reviewed`.",
+  );
   process.exit(2);
 }
+
+const lock = { repository: options.repo, ref: options.ref, commit, syncedAt: new Date().toISOString() };
+writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
 
 const build = [join(SCRIPTS, "build.mjs"), "--upstream", CACHE, "--lock", LOCK];
 for (const name of ["harness", "out"]) if (options[name]) build.push(`--${name}`, options[name]);

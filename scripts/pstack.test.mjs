@@ -317,12 +317,15 @@ describe("build", () => {
 });
 
 describe("sync", () => {
-  test("pins the fetched commit, rebuilds, and stops for review on Claude Code mapping changes", (t) => {
+  test("pins the fetched commit, rebuilds, and stops for review on Claude Code mapping changes until --reviewed", (t) => {
     const p = project(t);
     const cache = join(p.root, "cache");
     const lock = join(p.root, "synced.lock.json");
     const repo = pathToFileURL(p.upstream).href;
-    const sync = () => run("sync.mjs", ["--repo", repo, "--cache", cache, "--lock", lock, "--harness", p.harness, "--out", p.out]);
+    const sync = (...args) => run("sync.mjs", ["--repo", repo, "--cache", cache, "--lock", lock, "--harness", p.harness, "--out", p.out, ...args]);
+    const generated = () =>
+      Object.fromEntries(readdirSync(p.out, { recursive: true }).filter((path) => statSync(join(p.out, path)).isFile()).map((path) => [path, p.read(path)]));
+    const locked = () => JSON.parse(readFileSync(lock, "utf8")).commit;
 
     const first = sync();
     assert.equal(first.status, 0, first.stdout + first.stderr);
@@ -350,13 +353,28 @@ describe("sync", () => {
       "pstack/docs/harness/claude-code.md": "# Claude Code adapter\n\n| new row |\n",
       "pstack/agents/reviewer.md": "# reviewer v3\n",
     });
+    const built = generated();
     const review = sync();
     assert.equal(review.status, 2, review.stdout + review.stderr);
+    assert.equal(locked(), plain);
+    assert.deepEqual(generated(), built);
     assert.match(review.stdout, /pstack\/docs\/harness\/claude-code\.md \| 2 \+\+/);
     assert.match(review.stdout, /={5,} REVIEW ={5,}/);
     assert.match(review.stdout, /^\+\| new row \|$/m);
-    assert.match(review.stdout, /update harness\/adapter\.md if needed, then run `node scripts\/build\.mjs`\.\n$/);
-    assert.equal(JSON.parse(readFileSync(lock, "utf8")).commit, mapped);
-    assert.equal(p.read("upstream/agents/reviewer.md"), "# reviewer v2\n");
+    assert.match(review.stdout, /then run `node scripts\/sync\.mjs --reviewed`\.\n$/);
+
+    const rerun = sync();
+    assert.equal(rerun.status, 2, rerun.stdout + rerun.stderr);
+    assert.match(rerun.stdout, /^\+\| new row \|$/m);
+    assert.equal(locked(), plain);
+    assert.deepEqual(generated(), built);
+
+    const reviewed = sync("--reviewed");
+    assert.equal(reviewed.status, 0, reviewed.stdout + reviewed.stderr);
+    assert.match(reviewed.stdout, new RegExp(`moved from ${plain} to ${mapped}`));
+    assert.match(reviewed.stdout, /pstack\/docs\/harness\/claude-code\.md \| 2 \+\+/);
+    assert.match(reviewed.stdout, /^\+\| new row \|$/m);
+    assert.equal(locked(), mapped);
+    assert.equal(p.read("upstream/agents/reviewer.md"), "# reviewer v3\n");
   });
 });
