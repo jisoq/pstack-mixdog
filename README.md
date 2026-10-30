@@ -1,6 +1,6 @@
 # pstack-mixdog
 
-[cursor/plugins의 pstack](https://github.com/cursor/plugins/tree/main/pstack)을 Mixdog에서 쓰기 위한 플러그인과 그 관리 도구입니다. 업스트림 원문(스킬, 플레이북, 원칙)은 고치지 않고 그대로 복사하고, Cursor 전용 이름은 Mixdog 어댑터 한 장(`harness/adapter.md`)으로 옮깁니다. 업스트림이 Claude Code를 지원할 때 쓰는 방식(`docs/harness/claude-code.md`와 생성 스크립트)과 같은 구조입니다.
+[cursor/plugins의 pstack](https://github.com/cursor/plugins/tree/main/pstack)을 Mixdog에서 쓰기 위한 플러그인과 그 관리 도구입니다. 업스트림 원문(스킬, 플레이북, 원칙)은 고정된 커밋에서 복사하고, Cursor 전용 이름은 Mixdog 어댑터 한 장(`harness/adapter.md`)으로 옮깁니다. 복사본이 원문과 다른 곳은 두 가지입니다. Cursor 이름을 쓰는 스킬의 제목 아래에 어댑터 안내 한 줄이 들어가고, 복사하지 않은 업스트림 파일을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다. 업스트림이 Claude Code를 지원할 때 쓰는 방식(`docs/harness/claude-code.md`와 생성 스크립트)과 같은 구조입니다.
 
 이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/` 아래만 읽으므로, 같은 저장소에 있는 관리 도구(`scripts/`, `harness/`)는 동작에 끼어들지 않습니다.
 
@@ -68,8 +68,8 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 
 pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 클론한 폴더에서 아래 순서를 그대로 따릅니다. Node 22와 git이 필요합니다.
 
-1. `node scripts/sync.mjs`를 실행합니다(특정 브랜치나 태그는 `--ref <ref>`). 업스트림을 받아 새 커밋을 `upstream.lock.json`에 고정하고, 이전 커밋과의 변경 로그와 diff 통계를 출력한 뒤 빌드합니다.
-2. `REVIEW` 표시가 나오면 업스트림의 Claude Code 어댑터나 생성 스크립트가 바뀐 것입니다. 출력된 diff를 읽고 같은 변경이 `harness/adapter.md`에도 필요한지 판단해 반영합니다.
+1. `node scripts/sync.mjs`를 실행합니다(특정 브랜치나 태그는 `--ref <ref>`). 업스트림을 받아 이전 커밋과의 변경 로그와 diff 통계를 출력한 뒤, 새 커밋을 `upstream.lock.json`에 고정하고 빌드합니다.
+2. `REVIEW` 표시가 나오면 업스트림의 Claude Code 어댑터나 생성 스크립트가 바뀐 것입니다. 이때 sync는 `upstream.lock.json`을 그대로 두고 빌드하지 않은 채 종료 코드 2로 멈추며, 다시 실행해도 확인하기 전까지 매번 멈춥니다. 출력된 diff를 읽고 같은 변경이 `harness/adapter.md`(필요하면 `harness/SKILL.md`)에도 필요한지 판단해 반영한 뒤 `node scripts/sync.mjs --reviewed`를 실행합니다(`--ref`를 썼다면 같은 값을 함께). 이 실행은 업스트림을 다시 받아 그 시점의 로그와 diff를 출력하고, 그 커밋을 고정한 뒤 빌드합니다. 그사이 업스트림이 또 바뀌었다면 검토하지 않은 변경까지 함께 승인되므로, 출력된 커밋이 검토한 커밋과 같은지 확인합니다.
 3. 빌드가 `FAIL`로 끝나면 메시지대로 고칩니다. 가장 흔한 경우는 "adapter에 `<용어>` 행이 없음"입니다. 업스트림이 새 Cursor 전용 이름을 쓰기 시작했다는 뜻이므로 `harness/adapter.md`에 그 용어의 Mixdog 대응을 추가하고 `node scripts/build.mjs`를 다시 실행합니다. 빌드가 실패하면 생성물은 바뀌지 않습니다.
 4. `harness/SKILL.md`를 고쳤다면 생성된 스킬을 Mixdog 스킬 검사기로 확인합니다.
    `node "$env:LOCALAPPDATA\Programs\mixdog-desktop\resources\runtime.asar.unpacked\node_modules\mixdog\src\defaults\skills\skill-creator\scripts\validate-skill.mjs" skills/pstack`
@@ -99,4 +99,4 @@ pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 �
 
 ## 출처와 라이선스
 
-`upstream/` 아래의 스킬, 플레이북, 가이드는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋 그대로 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 이 저장소가 더한 것은 `harness/`, `scripts/`, 진입 스킬 `skills/pstack/SKILL.md`, 그리고 각 스킬에 넣은 Mixdog 어댑터 안내 한 줄입니다. 이 추가분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
+`upstream/` 아래의 스킬, 플레이북, 에이전트, 가이드는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋에서 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 복사하는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐입니다. Cursor 플러그인 패키징(`.cursor-plugin/`), 로고(`assets/`), Claude Code 어댑터(`docs/harness/claude-code.md`), 자동화 묶음(`automations/`) 같은 나머지는 빠지고, 복사한 문서에서 이 파일들을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다. 이 저장소가 더한 것은 `harness/`, `scripts/`, 진입 스킬 `skills/pstack/SKILL.md`, `harness/adapter.md`를 옮겨 둔 `upstream/docs/harness/mixdog.md`, 그리고 Cursor 이름을 쓰는 스킬의 제목 아래에 넣은 Mixdog 어댑터 안내 한 줄입니다. 이 추가분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
