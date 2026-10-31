@@ -101,7 +101,7 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 | Script | Mixdog |
 | --- | --- |
 | `.mjs`, such as `check-plan.mjs` in Multi-phase plan | `node <path>` through `shell`. |
-| The `statechart` launcher in the statechart skill | It is a POSIX `sh` script that picks Node 22.18 or later. Run `node --disable-warning=ExperimentalWarning <skill dir>/scripts/statechart.ts <args>` through `shell` instead. |
+| The `statechart` launcher in the statechart skill | It is a POSIX `sh` script that picks Node 22.18 or later. Run `node --disable-warning=ExperimentalWarning <skill dir>/scripts/statechart.ts <args>` through `shell` instead. The Mixdog copy carries a Windows patch, so the command needs no bash, WSL, or env setup. A `shell` cancel ends all of its processes but leaves its `.<out>.statechart-*` folder beside `--out` and its `statechart-*` folder in `TEMP`, so remove those two after a cancel. |
 | `watch-pr` in Babysit and Shipping, and in the babysit loop of Autopilot-full and Autopilot-stack owners | It runs on `bun`, and its first run installs its own dependencies into the script folder. Run `bun <path>/watch-pr <args>` through `shell`, because Windows ignores the `#!` line. Until Mixdog restarts after a Bun install, `bun` may be reachable only as `$env:USERPROFILE\.bun\bin\bun.exe`. |
 | `.sh`, such as `worktree-audit.sh` in Worktree cleanup and `log.sh` in show-me-your-work | They need bash. When `bash` is not on PATH, run Git for Windows' `& 'C:\Program Files\Git\bin\bash.exe' <path> <args>`. |
 | A missing runtime | Write `Skipped in Mixdog: <step>. <runtime> is not installed.` and go on, as for Cursor-only features. Without bash, show-me-your-work appends its row directly, as the skill allows. |
@@ -117,7 +117,7 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 | Node 22.18 or later | statechart, `check-plan.mjs` | `node --version` | `winget install --id OpenJS.NodeJS.LTS -e` |
 | Bun | `watch-pr` | `bun --version`, or `& "$env:USERPROFILE\.bun\bin\bun.exe" --version` | Download `https://bun.sh/install.ps1` to a file, read it, then run `powershell -NoProfile -ExecutionPolicy Bypass -File <file>`. |
 | bash | `worktree-audit.sh`, `log.sh` | `bash --version`, or `Test-Path 'C:\Program Files\Git\bin\bash.exe'` | Ships with Git for Windows. |
-| mise | statechart, whose first run installs TLC and Java with it | `mise --version` | `winget install --id jdx.mise -e` |
+| mise | statechart, whose first run installs TLC and Java with it. On Windows it keeps mise's download cache in `%LOCALAPPDATA%\mise\cache` unless `MISE_CACHE_DIR` is set, because mise's default under `TEMP` passes the 260-character path limit. | `mise --version` | `winget install --id jdx.mise -e` |
 
 A dependency the user declines stays missing, and its steps follow the missing-runtime rule in Scripts. A `winget` install can show a Windows permission prompt. A new PATH entry reaches Mixdog's `shell` only after Mixdog restarts, so use the full path until then.
 

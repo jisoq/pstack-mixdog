@@ -40,6 +40,10 @@ import {
 import { addPast, deadEnds, finder, lasso, mark } from "./passes/annotate.ts";
 import { pathGraph } from "./passes/paths.ts";
 
+// Java on Windows ends lines with CRLF. A line keeps no line-ending CR, even one that a read
+// leaves at the end of the text before its LF arrives.
+const lineEnd = (bytes: Uint8Array, end: number) => (bytes[end - 1] === 13 ? end - 1 : end);
+
 export function* fileLines(file: string) {
   const fd = fs.openSync(file, "r");
   try {
@@ -55,10 +59,10 @@ export function* fileLines(file: string) {
         kept = end;
         continue;
       }
-      yield* buf.toString("utf8", 0, cut).split("\n");
+      yield* buf.toString("utf8", 0, lineEnd(buf, cut)).split(/\r?\n/);
       kept = buf.copy(buf, 0, cut + 1, end);
     }
-    yield buf.toString("utf8", 0, kept);
+    yield buf.toString("utf8", 0, lineEnd(buf, kept));
   } finally {
     fs.closeSync(fd);
   }
@@ -141,10 +145,10 @@ function* outputLines(output: Output) {
       rest = buf;
       continue;
     }
-    yield* utf8.decode(buf.subarray(0, cut)).split("\n");
+    yield* utf8.decode(buf.subarray(0, lineEnd(buf, cut))).split(/\r?\n/);
     rest = buf.subarray(cut + 1);
   }
-  yield utf8.decode(rest);
+  yield utf8.decode(rest.subarray(0, lineEnd(rest, rest.length)));
 }
 
 const messagesOf = (output: Output): Iterable<Part> => ({
@@ -193,8 +197,18 @@ const runToFiles = (
 async function findTlc(cwd: string) {
   const { TLA2TOOLS, JAVA } = process.env;
   if (TLA2TOOLS) return { jar: TLA2TOOLS, java: JAVA || "java" };
+  // mise on Windows caches under TEMP, which statechart.ts points at a folder it deletes, and a JDK
+  // unpacked under a long TEMP passes the 260-character path limit.
+  const cache = process.platform === "win32" && !process.env.MISE_CACHE_DIR;
   const mise = (...args: string[]) =>
-    runChild("mise", args, { cwd, env: { ...process.env, MISE_CEILING_PATHS: cwd } });
+    runChild("mise", args, {
+      cwd,
+      env: {
+        ...process.env,
+        MISE_CEILING_PATHS: cwd,
+        ...(cache && { MISE_CACHE_DIR: path.join(process.env.LOCALAPPDATA as string, "mise", "cache") }),
+      },
+    });
   const where = () =>
     Promise.all([mise("where", TLC_TOOL), mise("which", "java", "--tool", JAVA_TOOL)]);
   let found = await where();
