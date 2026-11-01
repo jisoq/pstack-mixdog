@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-make-bot-ui; never inferred from the task.'
 
 # pstack-make-bot-ui
 
-This runs the same thing as `$pstack /make-bot-ui`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `make-bot-ui` as the named skill. That skill's Scope section applies.
+This runs pstack's `make-bot-ui` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `make-bot-ui` as the named skill. Its Scope section applies.

@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-statechart; never inferred from the task.'
 
 # pstack-statechart
 
-This runs the same thing as `$pstack /statechart`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `statechart` as the named skill. That skill's Scope section applies.
+This runs pstack's `statechart` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `statechart` as the named skill. Its Scope section applies.

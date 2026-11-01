@@ -54,7 +54,7 @@ if (old === commit) {
 ==================== REVIEW ====================
 Upstream changed its Claude Code mapping:
 ${mapping}
-Check whether harness/adapter.md (and harness/SKILL.md) need the same change.
+Check whether harness/adapter.md (and harness/ENTRY.md) need the same change.
 ================================================
 `);
     console.log(git("diff", old, commit, "--", ...MAPPING).trimEnd());
@@ -68,7 +68,7 @@ Check whether harness/adapter.md (and harness/SKILL.md) need the same change.
 // The lock keeps the old commit until then, so every rerun stops here again.
 if (review && !options.reviewed) {
   console.log(
-    "Not building. Review the diffs above, update harness/adapter.md (and harness/SKILL.md) if needed, then run `node scripts/sync.mjs --reviewed`.",
+    "Not building. Review the diffs above, update harness/adapter.md (and harness/ENTRY.md) if needed, then run `node scripts/sync.mjs --reviewed`.",
   );
   process.exit(2);
 }

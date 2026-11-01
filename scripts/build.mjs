@@ -29,7 +29,8 @@ const SKILLS = join(PSTACK, "skills");
 const GENERATOR = "scripts/generate-pstack-harness-trees.mjs";
 const ADAPTER = "docs/harness/mixdog.md";
 const GUIDE = "docs/guide";
-const ENTRY = "skills/pstack/SKILL.md";
+// The Poteto mode workflow and every pstack-<name> skill read this one file, so it sits beside the adapter.
+const ENTRY = "upstream/docs/harness/mixdog-entry.md";
 // The output root is the plugin repo, so everything else in it is hand-written and never touched.
 const OWNED = ["plugin.json", "skills", "upstream"];
 const OWNED_DIRS = ["skills", "upstream"];
@@ -211,8 +212,8 @@ function main() {
 
   const manifest = JSON.parse(files.get("plugin.json").bytes.toString("utf8"));
   const rendered = new Map([...files].map(([path, entry]) => [`upstream/${path}`, entry]));
-  const harnessSkill = join(HARNESS, "SKILL.md");
-  const entry = readFileSync(harnessSkill, "utf8")
+  const entryTemplate = join(HARNESS, "ENTRY.md");
+  const entry = readFileSync(entryTemplate, "utf8")
     .replaceAll("{{PSTACK_VERSION}}", () => manifest.version)
     .replaceAll("{{UPSTREAM_COMMIT}}", () => lock.commit.slice(0, 12))
     .replaceAll("{{SKILL_NAMES}}", () => skills.map((skill) => `\`${skill}\``).join(", "));
@@ -224,7 +225,7 @@ function main() {
   const directList = join(HARNESS, "direct-skills.json");
   const directTemplate = join(HARNESS, "DIRECT-SKILL.md");
   const template = readFileSync(directTemplate, "utf8");
-  const harnessSkills = [{ source: harnessSkill, path: ENTRY, text: entry }];
+  const harnessSkills = [{ source: entryTemplate, path: ENTRY, text: entry }];
   for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
     if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not an upstream pstack skill`);
     if (typeof description !== "string" || description.trim() === "") problems.push(`${show(directList)} has no description for ${name}`);

@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-correct; never inferred from the task.'
 
 # pstack-correct
 
-This runs the same thing as `$pstack /correct`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `correct` as the named skill. That skill's Scope section applies.
+This runs pstack's `correct` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `correct` as the named skill. Its Scope section applies.

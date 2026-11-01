@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-blast-radius; never inferred from the task.'
 
 # pstack-blast-radius
 
-This runs the same thing as `$pstack /blast-radius`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `blast-radius` as the named skill. That skill's Scope section applies.
+This runs pstack's `blast-radius` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `blast-radius` as the named skill. Its Scope section applies.
