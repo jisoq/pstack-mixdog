@@ -35,7 +35,7 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 | --- | --- |
 | 대화 전체를 poteto-mode로 처리 | 컴포저의 워크플로우 선택기에서 **Poteto mode** 선택 (그 대화에만 적용). pstack의 진입점은 이 워크플로우입니다. |
 | pstack의 개별 스킬 실행 | Poteto mode 대화에서 `/how <질문>`, `/arena <과제>`처럼 스킬 이름을 붙임 |
-| poteto-mode 플레이북이 부르지 않는 스킬을 아무 대화에서나 바로 실행 | `$pstack-<이름> <작업>`. Poteto mode 대화의 `/<이름>`과 같은 진입 파일을 읽습니다. 대상은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices` |
+| poteto-mode 플레이북이 부르지 않는 스킬과 `unslop`을 아무 대화에서나 바로 실행 | `$pstack-<이름> <작업>`. Poteto mode 대화의 `/<이름>`과 같은 진입 파일을 읽습니다. 대상은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices`, `unslop` |
 | 역할별 모델 설정 | Poteto mode 대화에서 `/setup-pstack`, 또는 Mixdog 설정 화면에서 `pstack-*` 에이전트의 모델을 직접 변경 |
 
 Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 pstack이 개입합니다. 그 뒤 관련 없는 새 요청은 기본 동작으로 처리됩니다. Poteto mode는 하위 에이전트에게 전달되지 않습니다. 하위 에이전트 세션은 전역 워크플로우를 받으며, Poteto mode 본문에는 하위 에이전트가 이를 무시하라는 문장이 들어 있습니다.
@@ -44,7 +44,7 @@ Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 
 
 | 항목 | 상태 |
 | --- | --- |
-| 스킬 목록 | 플레이북이 부르지 않는 16개 스킬의 `pstack-<이름>`, 모두 16줄이 추가됩니다. 나머지 업스트림 스킬은 플러그인의 `upstream/` 아래에 있어 Mixdog 스킬로 등록되지 않습니다. `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`)은 플러그인에 아예 들어가지 않습니다. 트리거 문구가 모두 "명시적으로 지목했을 때만"이라 작업 내용만 보고 자동 선택되지 않습니다. |
+| 스킬 목록 | 플레이북이 부르지 않는 16개 스킬과 `unslop`의 `pstack-<이름>`, 모두 17줄이 추가됩니다. 나머지 업스트림 스킬은 플러그인의 `upstream/` 아래에 있어 Mixdog 스킬로 등록되지 않습니다. `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`)은 플러그인에 아예 들어가지 않습니다. 트리거 문구가 모두 "명시적으로 지목했을 때만"이라 작업 내용만 보고 자동 선택되지 않습니다. |
 | 에이전트 목록 | pstack 전용 에이전트 다섯 개(`pstack-hard`, `pstack-judge`, `pstack-code`, `pstack-scout`, `pstack-verify`)가 추가됩니다. Mixdog의 에이전트 목록은 전역이라 모든 대화의 목록에 보이지만, 설명에 "pstack 실행에서만 사용"이라고 적혀 있어 다른 작업에는 선택되지 않습니다. 기존 에이전트(`worker` 등)의 지침과 모델은 건드리지 않습니다. |
 | 워크플로우 | 전역 기본값은 Default 그대로입니다. Poteto mode는 직접 고른 대화에만 적용됩니다. |
 | 모델 설정 | 각 `pstack-*` 에이전트의 Mixdog 모델 설정이 그 역할의 모델입니다. 다른 에이전트의 설정이나 AGENTS.md는 건드리지 않습니다. |

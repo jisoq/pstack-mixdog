@@ -14,5 +14,6 @@
   "sharpen": "Make a task deeper, not bigger, then rewrite its prompt.",
   "statechart": "Check a TLA+ model of a system that moves between states, and draw it as a Mermaid statechart.",
   "teach": "Explain a body of work plainly, weaving how and why together, so a person really understands it.",
-  "typescript-best-practices": "TypeScript best practices for reading or editing .ts and .tsx files."
+  "typescript-best-practices": "TypeScript best practices for reading or editing .ts and .tsx files.",
+  "unslop": "Cut AI writing tells from a draft, a PR description, or docs, keeping the meaning and tone."
 }
