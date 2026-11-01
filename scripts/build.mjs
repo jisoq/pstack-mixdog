@@ -206,7 +206,10 @@ function main() {
     return fail([`upstream ${GENERATOR} changed shape (${error.message}). Update how scripts/build.mjs reads TERMS and ROUTE_KEY.`]);
   }
 
-  const skills = readdirSync(SKILLS).filter((name) => existsSync(join(SKILLS, name, "SKILL.md"))).sort();
+  const upstreamSkills = readdirSync(SKILLS).filter((name) => existsSync(join(SKILLS, name, "SKILL.md"))).sort();
+  const excludedList = join(HARNESS, "excluded-skills.json");
+  const excluded = JSON.parse(readFileSync(excludedList, "utf8"));
+  const skills = upstreamSkills.filter((name) => !excluded.includes(name));
 
   function classify(skill) {
     const dir = join(SKILLS, skill);
@@ -228,6 +231,9 @@ function main() {
 
   const classes = new Map(skills.map((skill) => [skill, classify(skill)]));
   const problems = [];
+  for (const name of excluded) {
+    if (!upstreamSkills.includes(name)) problems.push(`${show(excludedList)} lists ${name}, which is not an upstream pstack skill`);
+  }
   const users = new Map();
   for (const [skill, { usesCursorNames, wrap }] of classes) {
     if (usesCursorNames.size > 0 && !wrap) problems.push(`pstack/skills/${skill}/SKILL.md uses Cursor names but has no H1`);
@@ -244,7 +250,7 @@ function main() {
 
   // Skills read the adapter, the guide, the agents, and the README at runtime, so Mixdog never fetches them.
   const copies = [
-    ...walk(SKILLS),
+    ...walk(SKILLS).filter((path) => !excluded.includes(rel(SKILLS, path).split("/")[0])),
     ...walk(join(PSTACK, "agents")),
     ...walk(join(PSTACK, GUIDE)),
     ...["README.md", "LICENSE", "plugin.json"].map((name) => join(PSTACK, name)),
@@ -296,7 +302,8 @@ function main() {
   const template = readFileSync(directTemplate, "utf8");
   const harnessSkills = [{ source: entryTemplate, path: ENTRY, text: entry }];
   for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
-    if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not an upstream pstack skill`);
+    if (excluded.includes(name)) problems.push(`${show(directList)} lists ${name}, which ${show(excludedList)} excludes`);
+    else if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not an upstream pstack skill`);
     if (typeof description !== "string" || description.trim() === "") problems.push(`${show(directList)} has no description for ${name}`);
     else if (/[\r\n]/.test(description)) problems.push(`${show(directList)} has a multi-line description for ${name}`);
     else if (description.length > DESCRIPTION_MAX) {

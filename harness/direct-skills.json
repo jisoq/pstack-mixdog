@@ -9,7 +9,6 @@
   "ketchup-video": "Catch up on what happened with a short subtitled slide video, and the waiting decisions as text.",
   "maintain-formal-verification-skill": "Bring formal verification back in line with changed code, and tell model drift from real bugs.",
   "maintain-verification-skill": "Check a project's verification skill and feature map against the live app, and fix what drifted.",
-  "make-bot-ui": "Build a custom UI that wakes a Grok Bot over a webhook, optionally shared on Tailscale.",
   "poteto-help": "Get help with pstack setup, poteto-mode, and picking the skill, playbook, or principle for a task.",
   "recall": "Rebuild your recent working context from chat history and live state into a current-state brief.",
   "sharpen": "Make a task deeper, not bigger, then rewrite its prompt.",
