@@ -30,7 +30,7 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 | `subagent_type: generalPurpose` | The role's pstack agent. When the skill builds the prompt from a template file, the brief gives that file's absolute path, not its text: "Read `<path>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." Then give each placeholder's value under its name, and the absolute paths of the files the skill appends, in order. Pass subagent reports as Reports between subagents says, and add nothing the skill or this adapter does not ask for. Any other prompt the skill prescribes is the brief as written. |
 | `poteto-agent` | The role's pstack agent. A delegate with no named role goes to `pstack-code` for code and to `pstack-judge` for prose or judgment. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
 | `comment-sicko` | `pstack-code`. The brief is "Read `<pstack>/agents/comment-sicko.md` in full and follow it.", then the scope. |
-| A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Run Agent sync when this conversation has not run it, then spawn again. When the spawn is still refused, stop, name the agent, and ask the user to check it in Mixdog's agent settings and send the next message. |
+| A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Run Agent sync when this conversation has not run it, then spawn again. When the spawn is still refused, stop, name the agent, and ask the user to pick its model and turn it on in Mixdog's agent settings, then send the next message. |
 | `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." A subagent that writes a report file gets "Do not edit files, stage, or commit, except your report file." instead. Check `git status` afterward. |
 | `readonly: false` | The default. Connectors stay available either way. |
 | `environment: "cloud"` | A managed worktree on this machine. Create it with the `git` tool (`git worktree add -b <branch>`) and spawn the agent with `cwd` set to the worktree path it returns. Name the branch or commit in the brief. These workers run locally, so at most two that build or test run at once, and the rest wait. |
@@ -53,7 +53,7 @@ When a skill hands one subagent's report to another subagent, such as how's expl
 
 ## Models
 
-Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route owns its model, effort, Auto effort, and speed. `<pstack>/../harness/agents.md` defines the agents and their default routes.
+Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route owns its model, effort, Auto effort, and speed. `<pstack>/../harness/agents.md` defines the agents and suggests a route for each.
 
 | pstack role (the `setup-pstack` role lines) | Mixdog agent |
 | --- | --- |
@@ -79,9 +79,9 @@ Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route
 Mixdog plugins ship only skills, so the five pstack agents and the Poteto mode workflow are Mixdog settings that this step creates and keeps in line with the plugin. Installation runs it, and the pstack entry runs it once per conversation. A delegated session skips it, because the session that spawned it already ran it. It never asks the user.
 
 1. Read each agent in `<pstack>/../harness/agents.md` with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the file's description and body. When an existing one's description or body differs from the file, save the file's description and body with `setup` `save_definition`. Never change an existing agent's route.
-2. Give each agent that step 1 created its default route from that file with `setup` `set_agent_route`, setting `autoEffort` explicitly, when `setup` `status providers` reports the route's provider authenticated and `setup` `list_models` lists its model. Otherwise leave it without a route, so it runs on Mixdog's main model.
+2. Turn off each agent that step 1 created with `setup` `set_agent_route` and `route: {"disabled": true}`, without a model, so the user picks its model and turns it on in Mixdog's agent settings.
 3. When the `poteto-mode` workflow exists and its name, description, or body differs from `<pstack>/../harness/WORKFLOW.md`, with `{{PLUGIN_ROOT}}` written as the absolute path of `<pstack>/..`, save the file's version with `setup` `save_definition`. Leave a missing workflow missing.
-4. When a step changed something, say so in one line, naming each created agent with its model, and say that agent models change in Mixdog's agent settings. When step 2 leaves `pstack-code` and `pstack-verify` on one model family, counting an agent without a route as the main model's family, add that the panels run both seats on that family without a cross-family check until one of them gets another family's model. Say nothing when nothing changed.
+4. When a step changed something, say so in one line. When step 2 turned agents off, add that pstack's subagents run only after the user picks a model for each and turns it on in Mixdog's agent settings, with `pstack-code` and `pstack-verify` on different model families when two are signed in, because every panel seats one of each. Say nothing when nothing changed.
 
 ## setup-pstack
 

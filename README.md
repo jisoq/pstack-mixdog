@@ -1,28 +1,34 @@
 # pstack-mixdog
 
-[cursor/plugins의 pstack](https://github.com/cursor/plugins/tree/main/pstack)을 Mixdog에서 쓰기 위한 플러그인과 그 관리 도구입니다. 업스트림 원문(스킬, 플레이북, 원칙)은 고정된 커밋에서 복사하고, Cursor 전용 이름은 Mixdog 어댑터 한 장(`harness/adapter.md`)으로 옮깁니다. 복사본이 원문과 다른 곳은 세 가지입니다. Cursor 이름을 쓰는 스킬의 제목 아래에 어댑터 안내 한 줄이 들어가고, 복사하지 않은 업스트림 파일을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀌고, `harness/patches/`의 패치가 적용됩니다. 지금 패치는 `statechart-windows.patch` 하나로, statechart 스크립트가 bash나 WSL 없이 Windows에서 돌게 합니다. 업스트림이 Claude Code를 지원할 때 쓰는 방식(`docs/harness/claude-code.md`와 생성 스크립트)과 같은 구조입니다.
-
-이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/` 아래만 읽으므로, 같은 저장소에 있는 관리 도구(`scripts/`, `harness/`)는 동작에 끼어들지 않습니다.
+[cursor/plugins의 pstack](https://github.com/cursor/plugins/tree/main/pstack)을 Mixdog에서 쓰게 해 주는 플러그인입니다. 업스트림 원문은 그대로 두고, Cursor 전용 이름만 Mixdog 도구로 옮겨 실행합니다.
 
 ## 설치
 
-Mixdog 대화창에서 아래처럼 한 번 요청합니다. PC마다 한 번이면 됩니다.
+Mixdog 대화창에서 한 번만 요청하면 됩니다.
 
 > `jisoq/pstack-mixdog`을 플러그인으로 등록하고, 설치된 플러그인 폴더의 `harness/INSTALL.md`를 읽고 그대로 따라줘
 
-요청을 받은 에이전트는 플러그인을 등록한 뒤(`setup` `add_plugin`) `harness/INSTALL.md`에 따라 세 가지를 합니다. Mixdog 플러그인에는 스킬만 담을 수 있어서, 워크플로우와 에이전트는 이렇게 따로 만듭니다.
+필요한 프로그램(git, GitHub CLI, Node, Bun, bash, mise) 중 없는 것은 어디에 쓰는지 설명하고 설치할지 묻습니다. 이어서 Poteto mode 워크플로우와 pstack 전용 에이전트 다섯 개를 만듭니다. 에이전트는 꺼진 상태로 만들어지니, 설치 뒤 아래 [모델](#모델)대로 모델을 고르고 켜 주세요. 건너뛴 프로그램은 같은 요청을 다시 하면 설치할 수 있습니다.
 
-1. pstack 스크립트가 쓰는 프로그램(git, GitHub CLI, Node, Bun, bash, mise)을 확인하고, 없는 것은 어디에 쓰는지 설명한 뒤 설치할 것을 고르게 합니다. 고른 것만 설치합니다.
-2. Poteto mode 워크플로우를 만듭니다. 전역 활성 워크플로우는 바꾸지 않습니다.
-3. pstack 전용 에이전트 다섯 개를 만듭니다. 기본 모델의 프로바이더에 로그인돼 있으면 그 모델을, 아니면 Mixdog 기본 모델을 씁니다. 모델은 묻지 않으며, Mixdog 설정 화면에서 바꿉니다.
+업데이트는 "pstack 플러그인 업데이트해줘"라고 요청하면 되고, 받은 뒤 따로 할 일은 없습니다.
 
-건너뛴 프로그램을 나중에 설치하려면 "`harness/INSTALL.md`를 다시 따라줘"라고 요청합니다. 이미 있는 것은 건드리지 않습니다.
+## 사용법
 
-업데이트는 "pstack 플러그인 업데이트해줘"(`setup` `update_plugin`)로 받으며, 받은 뒤 따로 할 일은 없습니다. pstack이 대화마다 처음 실행될 때 에이전트 설명과 본문, Poteto mode 워크플로우를 새 버전에 맞추고, 바꾼 것이 있으면 한 줄로 알립니다. 모델 설정은 그대로 둡니다.
+| 하고 싶은 일 | 방법 |
+| --- | --- |
+| 대화 전체를 pstack으로 처리 | 워크플로우 선택기에서 **Poteto mode** 선택 |
+| 특정 스킬 실행 | Poteto mode 대화에서 `/how <질문>`, `/arena <과제>`처럼 입력 |
+| 아무 대화에서 바로 실행 | `$pstack-<이름> <작업>` |
 
-### 기본 모델 배정
+`$pstack-<이름>`으로 바로 실행할 수 있는 스킬은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices`, `unslop`입니다.
 
-pstack의 17개 역할은 다섯 에이전트로 묶입니다. 저는 ChatGPT Pro(월 $200)와 Claude Max를 구독해 Mixdog에 `openai-oauth`와 `anthropic-oauth`로 로그인해 두고, 아래처럼 씁니다. 이 배정이 설치할 때 쓰는 기본값이고, Mixdog 설정 화면에서 바꿀 수 있습니다. 정의 원본은 `harness/agents.md`입니다.
+pstack은 Poteto mode 대화와 `$pstack-<이름>`을 고른 작업에만 개입합니다. 전역 워크플로우와 다른 에이전트 설정은 바꾸지 않습니다.
+
+## 모델
+
+설치하면 에이전트 다섯 개가 꺼진 상태로, 모델 없이 만들어집니다. Mixdog 설정 화면에서 에이전트마다 모델을 고르고 켜야 pstack이 쓸 수 있습니다.
+
+저는 ChatGPT Pro(월 $200)와 Claude Max를 구독해 Mixdog에 `openai-oauth`와 `anthropic-oauth`로 로그인해 두고, 아래처럼 씁니다.
 
 | 에이전트 | 맡는 역할 | 모델 |
 | --- | --- | --- |
@@ -32,81 +38,25 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 저는 ChatGPT Pr
 | `pstack-scout` | how 탐색, why 조사, reflect 도구 검토 | GPT-6.1 Terra, effort medium, fast |
 | `pstack-verify` | swarm 워커와 검증, 패널 둘째 자리 | GPT-6.1 Sol, effort Auto, fast |
 
-패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)을 쓰는 것이 좋습니다. 기본 모델의 프로바이더에 로그인하지 않은 PC에서는 그 에이전트가 Mixdog 기본 모델로 돕니다. 그래서 두 에이전트가 같은 계열이 되면 pstack이 패널이 교차 검증 없이 돈다고 한 번 알려 주며, Mixdog 설정 화면에서 둘 중 하나를 다른 계열 모델로 바꾸면 됩니다.
-
-## 사용법
-
-| 하고 싶은 일 | 입력 |
-| --- | --- |
-| 대화 전체를 poteto-mode로 처리 | 컴포저의 워크플로우 선택기에서 **Poteto mode** 선택 (그 대화에만 적용). pstack의 진입점은 이 워크플로우입니다. |
-| pstack의 개별 스킬 실행 | Poteto mode 대화에서 `/how <질문>`, `/arena <과제>`처럼 스킬 이름을 붙임 |
-| poteto-mode 플레이북이 부르지 않는 스킬과 `unslop`을 아무 대화에서나 바로 실행 | `$pstack-<이름> <작업>`. Poteto mode 대화의 `/<이름>`과 같은 진입 파일을 읽습니다. 대상은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices`, `unslop` |
-| 역할별 모델 설정 | Mixdog 설정 화면에서 `pstack-*` 에이전트의 모델을 변경 |
-
-Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 pstack이 개입합니다. 그 뒤 관련 없는 새 요청은 기본 동작으로 처리됩니다. Poteto mode는 하위 에이전트에게 전달되지 않습니다. 하위 에이전트 세션은 전역 워크플로우를 받으며, Poteto mode 본문에는 하위 에이전트가 이를 무시하라는 문장이 들어 있습니다.
-
-## 요청하지 않은 작업에 미치는 영향
-
-| 항목 | 상태 |
-| --- | --- |
-| 스킬 목록 | 플레이북이 부르지 않는 16개 스킬과 `unslop`의 `pstack-<이름>`, 모두 17줄이 추가됩니다. 나머지 업스트림 스킬은 플러그인의 `upstream/` 아래에 있어 Mixdog 스킬로 등록되지 않습니다. `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`)은 플러그인에 아예 들어가지 않습니다. 트리거 문구가 모두 "명시적으로 지목했을 때만"이라 작업 내용만 보고 자동 선택되지 않습니다. |
-| 에이전트 목록 | pstack 전용 에이전트 다섯 개(`pstack-hard`, `pstack-judge`, `pstack-code`, `pstack-scout`, `pstack-verify`)가 추가됩니다. Mixdog의 에이전트 목록은 전역이라 모든 대화의 목록에 보이지만, 설명에 "pstack 실행에서만 사용"이라고 적혀 있어 다른 작업에는 선택되지 않습니다. 기존 에이전트(`worker` 등)의 지침과 모델은 건드리지 않습니다. |
-| 워크플로우 | 전역 기본값은 Default 그대로입니다. Poteto mode는 직접 고른 대화에만 적용됩니다. |
-| 모델 설정 | 각 `pstack-*` 에이전트의 Mixdog 모델 설정이 그 역할의 모델입니다. 다른 에이전트의 설정이나 AGENTS.md는 건드리지 않습니다. |
-| 끄기 | 플러그인을 비활성화하면 한 번에 사라집니다. |
-
-## 구조
-
-| 경로 | 역할 | 수정 |
-| --- | --- | --- |
-| `harness/adapter.md` | Cursor 이름을 Mixdog 도구로 옮기는 매핑과 우선순위 규칙 | 직접 수정 |
-| `harness/ENTRY.md` | 진입 파일 `upstream/docs/harness/mixdog-entry.md`의 템플릿. Poteto mode 워크플로우와 `pstack-<이름>` 스킬이 모두 이 파일을 읽음 | 직접 수정 |
-| `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 업스트림 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
-| `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬 이름. 빌드는 이 스킬을 복사하지 않고 진입 파일의 스킬 목록에서도 빼며, 다른 문서의 링크는 고정된 커밋의 GitHub 주소로 바꿉니다 | 직접 수정 |
-| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. 진입 파일을 그 이름으로 따르라고만 적음 | 직접 수정 |
-| `harness/WORKFLOW.md` | Poteto mode 워크플로우 원본. `{{PLUGIN_ROOT}}`는 만들 때 플러그인 폴더로 바꿈 | 직접 수정 |
-| `harness/INSTALL.md` | 설치를 맡은 에이전트가 따르는 절차. 프로그램 확인, 워크플로우와 에이전트 생성 | 직접 수정 |
-| `harness/agents.md` | pstack 전용 에이전트 다섯 개의 정의와 기본 모델 | 직접 수정 |
-| `harness/patches/*.patch` | 빌드가 복사한 업스트림 파일에 적용하는 `git diff`. 경로는 cursor/plugins 루트 기준(`pstack/...`) | 업스트림 캐시에서 다시 만듦 (동기화 절차 3) |
-| `scripts/sync.mjs` | 업스트림을 받아 커밋을 고정하고 변경점을 보여준 뒤 빌드 | 실행 |
-| `scripts/build.mjs` | 고정된 업스트림과 `harness/`로 플러그인 생성물을 만들고 검사 | 실행 |
-| `upstream.lock.json` | 통합 중인 업스트림 커밋 | sync가 기록 |
-| `plugin.json`, `skills/`, `upstream/` | Mixdog이 읽는 플러그인 생성물. 빌드는 이 세 경로만 쓰고 지움 | 생성물, 직접 수정 금지 |
-| `.cache/cursor-plugins/` | 업스트림 클론 캐시 (커밋하지 않음) | 생성물 |
-
-## 업스트림 동기화 절차
-
-pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 클론한 폴더에서 아래 순서를 그대로 따릅니다. Node 22와 git이 필요합니다.
-
-1. `node scripts/sync.mjs`를 실행합니다(특정 브랜치나 태그는 `--ref <ref>`). 업스트림을 받아 이전 커밋과의 변경 로그와 diff 통계를 출력한 뒤, 새 커밋을 `upstream.lock.json`에 고정하고 빌드합니다.
-2. `REVIEW` 표시가 나오면 업스트림의 Claude Code 어댑터나 생성 스크립트가 바뀐 것입니다. 이때 sync는 `upstream.lock.json`을 그대로 두고 빌드하지 않은 채 종료 코드 2로 멈추며, 다시 실행해도 확인하기 전까지 매번 멈춥니다. 출력된 diff를 읽고 같은 변경이 `harness/adapter.md`(필요하면 `harness/ENTRY.md`)에도 필요한지 판단해 반영한 뒤 `node scripts/sync.mjs --reviewed`를 실행합니다(`--ref`를 썼다면 같은 값을 함께). 이 실행은 업스트림을 다시 받아 그 시점의 로그와 diff를 출력하고, 그 커밋을 고정한 뒤 빌드합니다. 그사이 업스트림이 또 바뀌었다면 검토하지 않은 변경까지 함께 승인되므로, 출력된 커밋이 검토한 커밋과 같은지 확인합니다.
-3. 빌드가 `FAIL`로 끝나면 메시지대로 고칩니다. 가장 흔한 경우는 "adapter에 `<용어>` 행이 없음"입니다. 업스트림이 새 Cursor 전용 이름을 쓰기 시작했다는 뜻이므로 `harness/adapter.md`에 그 용어의 Mixdog 대응을 추가하고 `node scripts/build.mjs`를 다시 실행합니다. "`<패치>` no longer applies"는 업스트림이 패치가 고치는 줄을 바꿨다는 뜻입니다. 빌드는 각 hunk의 원래 줄이 고정된 업스트림에 정확히 한 곳 있을 때만 적용하므로, 비슷한 자리에 대충 붙지 않고 멈춥니다. `git -C .cache/cursor-plugins apply --3way ../../harness/patches/<패치>`로 캐시에 적용해 충돌을 풀고, `git -C .cache/cursor-plugins diff HEAD --output=../../harness/patches/<패치>`로 패치를 다시 쓴 뒤, `git -C .cache/cursor-plugins reset --hard`로 캐시를 고정 커밋 상태로 되돌리고 빌드합니다. `--3way`는 패치를 index에도 올리므로 `HEAD`와 비교해야 패치 전체가 담기고, `reset --hard`라야 index까지 되돌아갑니다. 업스트림이 같은 문제를 고쳤다면 패치를 지웁니다. 빌드가 실패하면 생성물은 바뀌지 않습니다.
-4. `harness/DIRECT-SKILL.md`나 `harness/direct-skills.json`을 고쳤다면 `skills/pstack-<이름>` 폴더마다 생성된 스킬을 Mixdog 스킬 검사기로 확인합니다.
-   `node "$env:LOCALAPPDATA\Programs\mixdog-desktop\resources\runtime.asar.unpacked\node_modules\mixdog\src\defaults\skills\skill-creator\scripts\validate-skill.mjs" skills/pstack-<이름>`
-5. `node scripts/build.mjs --check`가 "up to date"를 출력하는지, `node --test scripts/*.test.mjs`가 통과하는지 확인합니다.
-6. `upstream.lock.json`, 생성물, 바뀐 `harness/`를 함께 커밋하고 푸시합니다. Windows git은 실행 권한을 기록하지 않으므로, 업스트림에서 실행 파일(`git -C .cache/cursor-plugins ls-files -s`의 `100755`)이 새로 생겼다면 `git update-index --chmod=+x upstream/<경로>`로 같은 권한을 붙여 커밋합니다. 사용자는 `update_plugin`으로 새 버전을 받습니다. 이미 열린 대화에 로드된 스킬 본문은 그대로입니다.
-7. `harness/WORKFLOW.md`나 `harness/agents.md`를 고쳐도 각 PC에서 따로 할 일은 없습니다. 업데이트 뒤 첫 pstack 실행이 워크플로우와 에이전트 정의를 맞춥니다.
+패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 둘은 서로 다른 계열 모델(GPT와 Claude 등)로 두는 것이 좋습니다.
 
 ## 알려진 제약
 
-- 업스트림 스크립트의 런타임은 아래와 같습니다. 런타임이 없으면 그 단계는 `Skipped in Mixdog: ...` 한 줄을 남기고 넘어갑니다.
-
-  | 스크립트 | 쓰는 곳 | 필요한 런타임 |
-  | --- | --- | --- |
-  | `watch-pr` (PR 상태 감시) | Babysit, Shipping, Autopilot-full과 Autopilot-stack의 PR 담당 에이전트 | **Bun** |
-  | `worktree-audit.sh` | Worktree cleanup | bash (Git for Windows에 포함) |
-  | `log.sh` (결정 기록) | show-me-your-work (긴 작업, 자리 비우는 작업) | bash. 없으면 행을 직접 추가 |
-  | `statechart` | statechart 스킬 | Node 22.18 이상과 mise. 첫 실행에 mise로 TLC와 Java를 설치합니다. 업스트림 스크립트는 `/bin/sh`가 있어야 하고 CRLF 출력을 읽지 못하지만, `statechart-windows.patch`가 Windows에서 Node만으로 돌게 합니다. 작업 프로세스와 Java 종료, 중단 시 정리, mise 캐시 위치(`%LOCALAPPDATA%\mise\cache`)가 그 내용입니다. Ctrl+C나 명령 프로세스 강제 종료 뒤에는 아무것도 남지 않지만, Mixdog `shell` 작업을 취소하면 Mixdog이 정리 프로세스까지 함께 끝내므로 `--out` 옆의 `.<out>.statechart-*` 폴더와 `TEMP`의 `statechart-*` 폴더가 남습니다. |
-  | `check-plan.mjs` | Multi-phase plan | Node |
-- Cursor Automations, Bugbot 설정, Cursor 클라우드 에이전트 자체가 필요한 단계도 같은 방식으로 건너뜁니다. 클라우드 워커는 이 PC의 관리형 worktree로 바뀌고, 빌드나 테스트를 하는 워커는 동시에 두 개까지만 돌립니다.
-- 업스트림 스킬에 적힌 모델(`grok-4.7-xhigh-fast` 등)은 쓰지 않습니다. 역할마다 정해진 `pstack-*` 에이전트의 Mixdog 모델 설정을 씁니다. 업스트림의 "작업 난이도에 따라 effort를 한 단계 올리거나 내리기"도 적용되지 않으며, 대신 Auto effort 에이전트가 매 턴 effort를 고릅니다.
-- 커밋, 푸시, PR, 머지 단계에 이르면 그 직전에 "PR로 올릴까요?"라고 묻습니다(커밋, 푸시, PR 생성 / 로컬 커밋만 / 커밋하지 않음). 답은 그 실행이 끝날 때까지 유지됩니다. 요청에 이미 그 단계가 있거나 "자는 동안 머지까지" 같은 전권 위임이 있으면 묻지 않습니다.
+- 필요한 프로그램이 없으면 그 단계만 건너뜁니다. Bun은 PR 감시(`watch-pr`), bash는 worktree 정리와 결정 기록, Node와 mise는 statechart에 씁니다.
+- Cursor Automations, Bugbot 설정, Cursor 클라우드 에이전트가 필요한 단계도 건너뜁니다. 클라우드 워커는 이 PC의 worktree로 대신합니다.
+- 업스트림 스킬에 적힌 모델과 effort 조절은 쓰지 않고, 각 에이전트의 Mixdog 모델 설정을 따릅니다.
+- 커밋, 푸시, PR, 머지 직전에는 한 번 묻습니다. 요청에 이미 그 단계가 있으면 묻지 않습니다.
+- statechart 작업을 Mixdog에서 취소하면 임시 폴더(`--out` 옆의 `.<out>.statechart-*`, `TEMP`의 `statechart-*`)가 남습니다.
 
 ## 끄기와 제거
 
-- 잠시 끄기: Mixdog 확장 화면에서 pstack 플러그인을 비활성화합니다(`setup` `set_plugin_enabled`).
-- 제거: 플러그인 등록을 해제하고(`remove_plugin`) Poteto mode 워크플로우를 삭제합니다.
+- 잠시 끄기: Mixdog 확장 화면에서 pstack 플러그인을 비활성화합니다.
+- 제거: 플러그인을 제거하고 Poteto mode 워크플로우를 삭제합니다.
+
+## 관리
+
+업스트림 동기화, 빌드, 저장소 구조는 [MAINTAINING.md](MAINTAINING.md)에 있습니다.
 
 ## 출처와 라이선스
 
-`upstream/` 아래의 스킬, 플레이북, 에이전트, 가이드는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋에서 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 복사하는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐이고, `skills/` 중 `harness/excluded-skills.json`에 적은 스킬은 빠집니다. Cursor 플러그인 패키징(`.cursor-plugin/`), 로고(`assets/`), Claude Code 어댑터(`docs/harness/claude-code.md`), 자동화 묶음(`automations/`) 같은 나머지는 빠지고, 복사한 문서에서 이 파일들을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다. 이 저장소가 더한 것은 `harness/`, `scripts/`, 바로 호출용 스킬 `skills/pstack-<이름>/SKILL.md`, `harness/adapter.md`를 옮겨 둔 `upstream/docs/harness/mixdog.md`, `harness/ENTRY.md`로 만든 진입 파일 `upstream/docs/harness/mixdog-entry.md`, Cursor 이름을 쓰는 스킬의 제목 아래에 넣은 Mixdog 어댑터 안내 한 줄, 그리고 `harness/patches/`의 패치가 바꾼 줄입니다. 이 추가분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
+`upstream/` 아래는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋에서 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 이 저장소가 더한 부분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
