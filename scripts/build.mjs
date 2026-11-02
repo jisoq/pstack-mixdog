@@ -33,6 +33,8 @@ const GUIDE = "docs/guide";
 const ENTRY = "upstream/docs/harness/mixdog-entry.md";
 // The output root is the plugin repo, so everything else in it is hand-written and never touched.
 const OWNED = ["plugin.json", "skills", "upstream"];
+const PORT_AUTHOR = "jisoq";
+const PLUGIN_REPOSITORY = "https://github.com/jisoq/pstack-mixdog";
 const OWNED_DIRS = ["skills", "upstream"];
 const COMMAND = "node scripts/build.mjs";
 const LINK = /\]\(([^)\s]+)\)/g;
@@ -293,9 +295,12 @@ function main() {
     .replaceAll("{{UPSTREAM_COMMIT}}", () => lock.commit.slice(0, 12))
     .replaceAll("{{SKILL_NAMES}}", () => skills.map((skill) => `\`${skill}\``).join(", "));
   rendered.set(ENTRY, textFile(entry));
-  const { description, author, homepage, repository, license, keywords } = manifest;
+  const { description, homepage, license, keywords } = manifest;
   const version = `${manifest.version}+mixdog.${lock.commit.slice(0, 7)}`;
-  const plugin = { name: "pstack", displayName: "pstack", version, description, author, homepage, repository, license, keywords };
+  // Mixdog shows only one author string, so the port credit rides in it after the upstream author.
+  const upstreamAuthor = typeof manifest.author === "string" ? manifest.author : manifest.author.name;
+  const author = `${upstreamAuthor} (ported to Mixdog by ${PORT_AUTHOR})`;
+  const plugin = { name: "pstack", displayName: "pstack", version, description, author, homepage, repository: PLUGIN_REPOSITORY, license, keywords };
   rendered.set("plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`));
   const directList = join(HARNESS, "direct-skills.json");
   const directTemplate = join(HARNESS, "DIRECT-SKILL.md");

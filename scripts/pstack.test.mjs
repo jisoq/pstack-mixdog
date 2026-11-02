@@ -127,7 +127,9 @@ describe("build", () => {
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /^4 skills, 3 SKILL\.md files with the Mixdog adapter line; .*: \d+ added, 0 changed, 0 deleted$/m);
 
-    const { description, author, homepage, repository, license, keywords } = MANIFEST;
+    const { description, homepage, license, keywords } = MANIFEST;
+    const author = "Lauren Tan (ported to Mixdog by jisoq)";
+    const repository = "https://github.com/jisoq/pstack-mixdog";
     const plugin = { name: "pstack", displayName: "pstack", version: `1.2.3+mixdog.${p.sha.slice(0, 7)}`, description, author, homepage, repository, license, keywords };
     assert.equal(p.read("plugin.json"), `${JSON.stringify(plugin, null, 2)}\n`);
     assert.equal(
