@@ -55,6 +55,7 @@ Read [the adapter](mixdog.md) and [alpha](../../skills/alpha/SKILL.md#steps).
 `,
   "DIRECT-SKILL.md": readFileSync(join(SCRIPTS, "..", "harness", "DIRECT-SKILL.md"), "utf8"),
   "direct-skills.json": "{}\n",
+  "excluded-skills.json": "[]\n",
 };
 
 function git(dir, ...args) {
@@ -292,6 +293,25 @@ index 0000000..1111111 100644
     assert.equal(result.status, 1);
     assert.match(result.stdout, /^FAIL .*patches[\\/]beta\.patch hunk @@ -0,0 \+1 @@ has no old lines to anchor it in pstack\/skills\/beta\/scripts\/run\.ts\./m);
     assert.ok(!existsSync(p.out));
+  });
+
+  test("leaves an excluded skill out of the tree and the entry list, links to it at the pinned commit, and fails on an unknown or wrapped name", (t) => {
+    const p = project(t, {
+      upstream: { "pstack/skills/delta/SKILL.md": skill("delta", "Install the tools with bun. Compare with [beta](../beta/SKILL.md).") },
+      harness: { "excluded-skills.json": JSON.stringify(["beta"]) },
+    });
+    const result = p.build();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.ok(!existsSync(join(p.out, "upstream", "skills", "beta")));
+    assert.doesNotMatch(p.read("upstream/docs/harness/mixdog-entry.md"), /`beta`/);
+    assert.ok(p.read("upstream/skills/delta/SKILL.md").includes(`](${REPOSITORY}/blob/${p.sha}/pstack/skills/beta/SKILL.md)`));
+    assert.equal(p.build("--check").status, 0);
+
+    write(p.harness, { "excluded-skills.json": JSON.stringify(["beta", "omega"]), "direct-skills.json": JSON.stringify({ beta: "Run beta." }) });
+    const failed = p.build();
+    assert.equal(failed.status, 1);
+    assert.match(failed.stdout, /^FAIL .*excluded-skills\.json lists omega, which is not an upstream pstack skill$/m);
+    assert.match(failed.stdout, /^FAIL .*direct-skills\.json lists beta, which .*excluded-skills\.json excludes$/m);
   });
 
   test("fails when the upstream generator changed shape", (t) => {

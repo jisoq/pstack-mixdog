@@ -35,7 +35,7 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 | --- | --- |
 | 대화 전체를 poteto-mode로 처리 | 컴포저의 워크플로우 선택기에서 **Poteto mode** 선택 (그 대화에만 적용). pstack의 진입점은 이 워크플로우입니다. |
 | pstack의 개별 스킬 실행 | Poteto mode 대화에서 `/how <질문>`, `/arena <과제>`처럼 스킬 이름을 붙임 |
-| poteto-mode 플레이북이 부르지 않는 스킬을 아무 대화에서나 바로 실행 | `$pstack-<이름> <작업>`. Poteto mode 대화의 `/<이름>`과 같은 진입 파일을 읽습니다. 대상은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `make-bot-ui`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices` |
+| poteto-mode 플레이북이 부르지 않는 스킬과 `unslop`을 아무 대화에서나 바로 실행 | `$pstack-<이름> <작업>`. Poteto mode 대화의 `/<이름>`과 같은 진입 파일을 읽습니다. 대상은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices`, `unslop` |
 | 역할별 모델 설정 | Poteto mode 대화에서 `/setup-pstack`, 또는 Mixdog 설정 화면에서 `pstack-*` 에이전트의 모델을 직접 변경 |
 
 Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 pstack이 개입합니다. 그 뒤 관련 없는 새 요청은 기본 동작으로 처리됩니다. Poteto mode는 하위 에이전트에게 전달되지 않습니다. 하위 에이전트 세션은 전역 워크플로우를 받으며, Poteto mode 본문에는 하위 에이전트가 이를 무시하라는 문장이 들어 있습니다.
@@ -44,7 +44,7 @@ Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 
 
 | 항목 | 상태 |
 | --- | --- |
-| 스킬 목록 | 플레이북이 부르지 않는 17개 스킬의 `pstack-<이름>`, 모두 17줄이 추가됩니다. 나머지 업스트림 스킬은 플러그인의 `upstream/` 아래에 있어 Mixdog 스킬로 등록되지 않습니다. 트리거 문구가 모두 "명시적으로 지목했을 때만"이라 작업 내용만 보고 자동 선택되지 않습니다. |
+| 스킬 목록 | 플레이북이 부르지 않는 16개 스킬과 `unslop`의 `pstack-<이름>`, 모두 17줄이 추가됩니다. 나머지 업스트림 스킬은 플러그인의 `upstream/` 아래에 있어 Mixdog 스킬로 등록되지 않습니다. `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`)은 플러그인에 아예 들어가지 않습니다. 트리거 문구가 모두 "명시적으로 지목했을 때만"이라 작업 내용만 보고 자동 선택되지 않습니다. |
 | 에이전트 목록 | pstack 전용 에이전트 다섯 개(`pstack-hard`, `pstack-judge`, `pstack-code`, `pstack-scout`, `pstack-verify`)가 추가됩니다. Mixdog의 에이전트 목록은 전역이라 모든 대화의 목록에 보이지만, 설명에 "pstack 실행에서만 사용"이라고 적혀 있어 다른 작업에는 선택되지 않습니다. 기존 에이전트(`worker` 등)의 지침과 모델은 건드리지 않습니다. |
 | 워크플로우 | 전역 기본값은 Default 그대로입니다. Poteto mode는 직접 고른 대화에만 적용됩니다. |
 | 모델 설정 | 각 `pstack-*` 에이전트의 Mixdog 모델 설정이 그 역할의 모델입니다. 다른 에이전트의 설정이나 AGENTS.md는 건드리지 않습니다. |
@@ -57,6 +57,7 @@ Poteto mode가 아닌 대화에서는 `$pstack-<이름>`을 고른 작업에만 
 | `harness/adapter.md` | Cursor 이름을 Mixdog 도구로 옮기는 매핑과 우선순위 규칙 | 직접 수정 |
 | `harness/ENTRY.md` | 진입 파일 `upstream/docs/harness/mixdog-entry.md`의 템플릿. Poteto mode 워크플로우와 `pstack-<이름>` 스킬이 모두 이 파일을 읽음 | 직접 수정 |
 | `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 업스트림 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
+| `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬 이름. 빌드는 이 스킬을 복사하지 않고 진입 파일의 스킬 목록에서도 빼며, 다른 문서의 링크는 고정된 커밋의 GitHub 주소로 바꿉니다 | 직접 수정 |
 | `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. 진입 파일을 그 이름으로 따르라고만 적음 | 직접 수정 |
 | `harness/WORKFLOW.md` | Poteto mode 워크플로우 원본. `{{PLUGIN_ROOT}}`는 만들 때 플러그인 폴더로 바꿈 | 직접 수정 |
 | `harness/agents.md` | pstack 전용 에이전트 다섯 개의 정의와 기본 모델 | 직접 수정 |
@@ -102,4 +103,4 @@ pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 �
 
 ## 출처와 라이선스
 
-`upstream/` 아래의 스킬, 플레이북, 에이전트, 가이드는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋에서 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 복사하는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐입니다. Cursor 플러그인 패키징(`.cursor-plugin/`), 로고(`assets/`), Claude Code 어댑터(`docs/harness/claude-code.md`), 자동화 묶음(`automations/`) 같은 나머지는 빠지고, 복사한 문서에서 이 파일들을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다. 이 저장소가 더한 것은 `harness/`, `scripts/`, 바로 호출용 스킬 `skills/pstack-<이름>/SKILL.md`, `harness/adapter.md`를 옮겨 둔 `upstream/docs/harness/mixdog.md`, `harness/ENTRY.md`로 만든 진입 파일 `upstream/docs/harness/mixdog-entry.md`, Cursor 이름을 쓰는 스킬의 제목 아래에 넣은 Mixdog 어댑터 안내 한 줄, 그리고 `harness/patches/`의 패치가 바꾼 줄입니다. 이 추가분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
+`upstream/` 아래의 스킬, 플레이북, 에이전트, 가이드는 [cursor/plugins](https://github.com/cursor/plugins)의 pstack(Lauren Tan, MIT)을 고정된 커밋에서 복사한 것이며, 원본 라이선스는 `upstream/LICENSE`에 있습니다. 복사하는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐이고, `skills/` 중 `harness/excluded-skills.json`에 적은 스킬은 빠집니다. Cursor 플러그인 패키징(`.cursor-plugin/`), 로고(`assets/`), Claude Code 어댑터(`docs/harness/claude-code.md`), 자동화 묶음(`automations/`) 같은 나머지는 빠지고, 복사한 문서에서 이 파일들을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다. 이 저장소가 더한 것은 `harness/`, `scripts/`, 바로 호출용 스킬 `skills/pstack-<이름>/SKILL.md`, `harness/adapter.md`를 옮겨 둔 `upstream/docs/harness/mixdog.md`, `harness/ENTRY.md`로 만든 진입 파일 `upstream/docs/harness/mixdog-entry.md`, Cursor 이름을 쓰는 스킬의 제목 아래에 넣은 Mixdog 어댑터 안내 한 줄, 그리고 `harness/patches/`의 패치가 바꾼 줄입니다. 이 추가분은 최상위 `LICENSE`(MIT)를 따릅니다. 이 저장소는 Cursor나 pstack 원저자의 공식 배포물이 아닙니다.
