@@ -30,7 +30,7 @@ pstack skills use Cursor names. In Mixdog, read this file once per conversation,
 | `subagent_type: generalPurpose` | The role's pstack agent. When the skill builds the prompt from a template file, the brief gives that file's absolute path, not its text: "Read `<path>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." Then give each placeholder's value under its name, and the absolute paths of the files the skill appends, in order. Pass subagent reports as Reports between subagents says, and add nothing the skill or this adapter does not ask for. Any other prompt the skill prescribes is the brief as written. |
 | `poteto-agent` | The role's pstack agent. A delegate with no named role goes to `pstack-code` for code and to `pstack-judge` for prose or judgment. Open the brief with "You are a poteto-agent delegate. Read `<pstack>/agents/poteto-agent.md` and follow it. poteto-mode is `<pstack>/skills/poteto-mode/SKILL.md` and the Mixdog adapter is `<pstack>/docs/harness/mixdog.md`." Write `<pstack>` as the absolute path. |
 | `comment-sicko` | `pstack-code`. The brief is "Read `<pstack>/agents/comment-sicko.md` in full and follow it.", then the scope. |
-| A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Stop and run `setup-pstack`, which creates and routes the five agents. |
+| A pstack agent the session's agent list lacks, or a spawn refused as unknown or turned off | Run Agent sync when this conversation has not run it, then spawn again. When the spawn is still refused, stop, name the agent, and ask the user to check it in Mixdog's agent settings and send the next message. |
 | `readonly: true` | The same agent. The brief adds "Do not edit files, stage, or commit." A subagent that writes a report file gets "Do not edit files, stage, or commit, except your report file." instead. Check `git status` afterward. |
 | `readonly: false` | The default. Connectors stay available either way. |
 | `environment: "cloud"` | A managed worktree on this machine. Create it with the `git` tool (`git worktree add -b <branch>`) and spawn the agent with `cwd` set to the worktree path it returns. Name the branch or commit in the brief. These workers run locally, so at most two that build or test run at once, and the rest wait. |
@@ -71,19 +71,21 @@ Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route
 | `model` on a spawn | Never pass `model`, `provider`, or `effort`. The agent's route decides. |
 | A role value or a default slug in a skill, such as `claude-<family>-<version>-<effort>[-fast]`, `grok-*`, `gpt-*`, `inherit-parent`, or `auto` | Ignored. The role table above replaces every model value a skill names, its defaults and its rejection fallbacks included. |
 | Raising or lowering the reasoning level, `-fast`, and fast mode | Does not apply. The route sets effort and speed, and a route on Auto picks its effort per turn. |
-| A rejected slug | Does not occur. A spawn refused because the agent is unknown or turned off means `setup-pstack` must run. |
+| A rejected slug | Does not occur. A spawn refused because the agent is unknown or turned off follows its Subagent fields row. |
 | A model family | The first word of the route's model id, such as `claude` or `gpt`. |
+
+## Agent sync
+
+Mixdog plugins ship only skills, so the five pstack agents and the Poteto mode workflow are Mixdog settings that this step creates and keeps in line with the plugin. Installation runs it, and the pstack entry runs it once per conversation. A delegated session skips it, because the session that spawned it already ran it. It never asks the user.
+
+1. Read each agent in `<pstack>/../harness/agents.md` with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the file's description and body. When an existing one's description or body differs from the file, save the file's description and body with `setup` `save_definition`. Never change an existing agent's route.
+2. Give each agent that step 1 created its default route from that file with `setup` `set_agent_route`, setting `autoEffort` explicitly, when `setup` `status providers` reports the route's provider authenticated and `setup` `list_models` lists its model. Otherwise leave it without a route, so it runs on Mixdog's main model.
+3. When the `poteto-mode` workflow exists and its name, description, or body differs from `<pstack>/../harness/WORKFLOW.md`, with `{{PLUGIN_ROOT}}` written as the absolute path of `<pstack>/..`, save the file's version with `setup` `save_definition`. Leave a missing workflow missing.
+4. When a step changed something, say so in one line, naming each created agent with its model, and say that agent models change in Mixdog's agent settings. When step 2 leaves `pstack-code` and `pstack-verify` on one model family, counting an agent without a route as the main model's family, add that the panels run both seats on that family without a cross-family check until one of them gets another family's model. Say nothing when nothing changed.
 
 ## setup-pstack
 
-In Mixdog it configures the five pstack agents instead of writing a rule. Follow its steps with these changes.
-
-- Dependencies, before step 1. Run every check in the Dependencies section. Show the missing ones with the playbooks that need them, then ask with `ask_user`, multi-select, which to install. Install only the chosen ones, one at a time, with the row's command, and rerun its check. Result: each dependency is present or declined, and the reply names the declined ones.
-- Detect. The detected models are the rows `setup` `list_models` returns for each provider that `setup` `status providers` reports as authenticated, with the efforts each row lists. Auto counts as an effort when `setup` `status features` reports `autoEffort` ready.
-- Load current state. Read each of the five agents with `setup` `read_definition`. Create a missing one with `setup` `create_definition`, using `kind: "agent"`, its id as the name, and the description and body from `<pstack>/../harness/agents.md`. When an existing one's description or body differs from that file, save the file's description and body with `setup` `save_definition`. Its route stays as it is. Its default route from that file is the starting choice. A default whose provider or model is not detected makes that agent need a choice, as step 3 says.
-- Step 3 is show and confirm. Show the role table from Models and each agent's route, then ask with `ask_user` whether to accept or change specific agents. It takes two to four options per question, so show long model lists in plain text first. When the detected models span two or more families, refuse a choice that puts `pstack-code` and `pstack-verify` on the same model family, and say that every panel needs one of each. When every detected model is one family, accept that family for both, and say that the panels then run both seats on it without a cross-family check until another family's provider is signed in and `setup-pstack` runs again.
-- Write. Apply each route with `setup` `set_agent_route`, setting `autoEffort` explicitly. Never change any other agent's route, and never write a models file, `AGENTS.md`, or `CLAUDE.md`.
-- Confirm is the last step. Say that open conversations pick up the routes from their next turn.
+Mixdog has no separate setup. Installation and Agent sync create the agents and the workflow, and the user changes an agent's model in Mixdog's agent settings. When the user runs `/setup-pstack`, or a skill points them to it, run Agent sync, show each agent's route next to the role table from Models, and say where models change. Skip the upstream steps, its budget question included.
 
 ## Paths
 
@@ -108,7 +110,7 @@ In Mixdog it configures the five pstack agents instead of writing a rule. Follow
 
 ## Dependencies
 
-`setup-pstack` checks these and installs only the ones the user approves.
+Installation, `<pstack>/../harness/INSTALL.md`, checks these and installs only the ones the user approves. Following that file again offers the ones still missing.
 
 | Dependency | Needed by | Check | Install on Windows |
 | --- | --- | --- | --- |
