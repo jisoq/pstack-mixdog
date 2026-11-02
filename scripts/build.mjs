@@ -127,7 +127,7 @@ function main() {
   // Mixdog shows only one author string, so the port credit rides in it after the upstream author.
   const upstreamAuthor = typeof manifest.author === "string" ? manifest.author : manifest.author.name;
   const author = `${upstreamAuthor} (ported to Mixdog by ${PORT_AUTHOR})`;
-  const plugin = { name: "pstack", displayName: "pstack", version, description, author, homepage, repository: PLUGIN_REPOSITORY, license, keywords };
+  const plugin = { name: "pstack-mixdog", displayName: "pstack-mixdog", version, description, author, homepage, repository: PLUGIN_REPOSITORY, license, keywords };
   const rendered = new Map([["plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`)]]);
   const template = readFileSync(directTemplate, "utf8");
   for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
