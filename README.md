@@ -27,7 +27,7 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 | `pstack-scout` | how 탐색, why 조사, reflect 도구 검토 | GPT-6.1 Terra, effort medium, fast |
 | `pstack-verify` | swarm 워커와 검증, 패널 둘째 자리 | GPT-6.1 Sol, effort Auto, fast |
 
-패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 기본값은 `anthropic-oauth`와 `openai-oauth` 로그인을 전제로 합니다. 다른 로그인을 쓰는 PC에서는 `setup-pstack`이 해당 에이전트의 모델을 새로 고르게 합니다.
+패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 로그인한 프로바이더의 모델이 한 계열뿐이면 `setup-pstack`은 두 에이전트를 같은 계열로 두는 것을 허용하고, 다른 계열 프로바이더에 로그인한 뒤 `setup-pstack`을 다시 실행하기 전까지는 패널이 교차 검증 없이 돈다고 알려 줍니다. 기본값은 `anthropic-oauth`와 `openai-oauth` 로그인을 전제로 합니다. 다른 로그인을 쓰는 PC에서는 `setup-pstack`이 해당 에이전트의 모델을 새로 고르게 합니다.
 
 ## 사용법
 

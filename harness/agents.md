@@ -18,4 +18,4 @@ You run one step of a pstack run. The brief is your whole task and role: follow 
 | `pstack-scout` | pstack runs only (Poteto mode or a $pstack-* skill): exploration and investigation. Never for other work. | `openai-oauth/gpt-6.1-terra`, effort `medium`, fast on |
 | `pstack-verify` | pstack runs only (Poteto mode or a $pstack-* skill): swarm workers, verification fan-out, and the second panel seat. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
 
-`pstack-code` and `pstack-verify` must stay on different model families, because every pstack panel seats one of each.
+`pstack-code` and `pstack-verify` must stay on different model families whenever two families are available, because every pstack panel seats one of each. When the signed-in providers offer only one family, both run on it.
