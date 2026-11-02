@@ -151,6 +151,10 @@ function applyPatches(files) {
         problems.push(`${source} has a corrupt hunk at ${hunk[0]}`);
         break;
       }
+      if (old.length === 0) {
+        problems.push(`${source} hunk ${hunk[0]} has no old lines to anchor it in pstack/${path}. Regenerate the patch with context lines.`);
+        continue;
+      }
       if (!files.has(path)) continue;
       const entry = files.get(path);
       const text = entry.bytes.toString("utf8");

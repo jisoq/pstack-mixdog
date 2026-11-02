@@ -277,6 +277,23 @@ index 0000000..1111111 100644
     assert.ok(!existsSync(p.out));
   });
 
+  test("fails, naming the hunk, when a patch hunk has no old lines, and writes nothing", (t) => {
+    const insertion = {
+      "patches/beta.patch": `diff --git a/pstack/skills/beta/scripts/run.ts b/pstack/skills/beta/scripts/run.ts
+index 0000000..1111111 100644
+--- a/pstack/skills/beta/scripts/run.ts
++++ b/pstack/skills/beta/scripts/run.ts
+@@ -0,0 +1 @@
++one
+`,
+    };
+    const p = project(t, { upstream: { "pstack/skills/beta/scripts/run.ts": "" }, harness: insertion });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /^FAIL .*patches[\\/]beta\.patch hunk @@ -0,0 \+1 @@ has no old lines to anchor it in pstack\/skills\/beta\/scripts\/run\.ts\./m);
+    assert.ok(!existsSync(p.out));
+  });
+
   test("fails when the upstream generator changed shape", (t) => {
     const p = project(t, { upstream: { "scripts/generate-pstack-harness-trees.mjs": "export const TERMS = loadTerms();\n" } });
     const result = p.build();
