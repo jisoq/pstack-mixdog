@@ -1,7 +1,7 @@
 {
   "name": "pstack",
   "displayName": "pstack",
-  "version": "0.15.36+mixdog.4dd1d05",
+  "version": "0.15.36+mixdog.4dd1d05.7385f07d",
   "description": "if you want to go fast, go deep first. pstack helps you write less, but higher quality code. rigorous agent workflows you can parallelize with confidence.",
   "author": "Lauren Tan (ported to Mixdog by jisoq)",
   "homepage": "https://github.com/cursor/plugins/tree/main/pstack",

@@ -6,39 +6,31 @@ disable-model-invocation: true
 
 # Reflect
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
 Mine the current conversation for durable learnings, then route them into skill edits.
 
 Invoke when the user says "reflect" or "/reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
 
 ## 1. Locate the active transcript
 
-Before fanning out, find this conversation's transcript in the `agent-transcripts/` directory the system prompt names. Do not glob across `~/.cursor/projects/*/`. That crosses workspace boundaries and reads private chats from unrelated projects.
+Before fanning out, write a digest of this conversation from your own context. For parts lost to compaction that the digest needs, read just those items with `session` `read` on this conversation's id from `session` `status`, which keeps the tool calls.
 
-```bash
-ls -t <agent-transcripts>/*.jsonl <agent-transcripts>/*/*.jsonl <agent-transcripts>/*/subagents/*.jsonl 2>/dev/null | head -10
-```
+The digest keeps turn order, numbers the turns, and quotes the moments the reviewers will cite: the user's requests and corrections, the decisions, the skills and files you read by path, the tools you ran with their exact commands, the tickets, threads, and traces the conversation names, and the failures and retries. Pick a new folder, `<TEMP>/pstack/reflect-<HHmmss>`, where `<TEMP>` is the `TEMP` of `shell`, and write it to `<folder>/digest.md`. That file is the transcript path, and each brief says it is a digest.
 
-That covers the legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`) layouts. For each candidate, read the first JSONL line. Take the file whose `message.content[0].text` contains the conversation's opening user prompt. If none matches, pass a tight digest of the session instead.
+## 2. Spawn three reviewers
 
-## 2. Spawn three reviewers in parallel
+Reviewers use the session's connectors to look up the tickets, chat threads, and observability traces the transcript references.
 
-One message, three `Task` calls, `subagent_type: generalPurpose`, agent mode (`readonly: false`). Reviewers need MCP access to look up the tickets, chat threads, and observability traces the transcript references, and readonly strips MCPs.
+| Lens | Agent | Prompt template |
+|---|---|---|
+| Judgment | `pstack-judge` | `references/judgment-reviewer.md` |
+| Tooling | `pstack-scout` | `references/tooling-reviewer.md` |
+| Divergent | `pstack-judge` | `references/divergent-reviewer.md` |
 
-Each reviewer and the synthesizer name a role line in the `pstack-models.mdc` rule and a default. Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
-
-| Lens | Role line | Default `model` | Prompt template |
-|---|---|---|---|
-| Judgment | `reflect judgment, divergent, synthesizer` | `claude-opus-5-5-xhigh` | `references/judgment-reviewer.md` |
-| Tooling | `reflect tooling` | `grok-4.7-xhigh-fast` | `references/tooling-reviewer.md` |
-| Divergent | `reflect judgment, divergent, synthesizer` | `claude-opus-5-5-xhigh` | `references/divergent-reviewer.md` |
-
-Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in the `Task` response body.
+Each brief opens with "Read `<root>/upstream/skills/reflect/references/<template>` in full. Your prompt is the whole file." and gives the transcript path or digest for the placeholder it marks. Each brief names its output file, `<folder>/<tag>.md`.
 
 ## 3. Synthesize
 
-One `Task` call, `subagent_type: generalPurpose`, `model` from the `reflect judgment, divergent, synthesizer` line (default `claude-opus-5-5-xhigh`), agent mode (`readonly: false`). It spot-verifies citations through MCP, and readonly strips MCPs. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. It returns an Accepted / Rejected / Backlog list.
+One synthesizer on `pstack-judge`. It spot-verifies citations through the session's connectors. Its brief opens with "Read `<root>/upstream/skills/reflect/references/synthesizer.md` in full. Your prompt is the whole file." Each reviewer's placeholder holds "Read each file in full:" and that reviewer's output path. It returns an Accepted / Rejected / Backlog list.
 
 ## 4. Structural enforcement check
 
@@ -50,14 +42,14 @@ Present the synthesizer's full Accepted / Rejected / Backlog output and wait for
 
 File each Backlog item to your team's devex or backlog tracker without waiting. Only the Accepted list waits for approval.
 
-Never edit a skill under `plugins/cache/`. Before approval, show its destination, `.cursor/skills/<skill>/` or `~/.cursor/skills/<skill>/`. After approval, copy the skill folder there and edit the copy. Never open a PR or push.
+Never edit a skill under `<root>`. A pstack skill changes in the user's copy, `~/.mixdog/data/skills/pstack-custom-<skill>/`, which pstack runs read in place of the plugin's skill. Before approval, show that destination. After approval, when the copy does not exist yet, make it with the `skill-creator` skill: copy the skill folder, set its frontmatter `name` to `pstack-custom-<skill>`, drop `disable-model-invocation`, set `when_to_use` to `'Read by pstack runs in place of <skill>; never inferred from the task.'`, and write each link that leaves the folder as a `<root>/upstream/...` path. Then edit the copy. Never open a PR or push.
 
 Follow each approved row's Routing exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to Cursor's built-in `create-skill` skill and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to `create-skill` and run its description-optimization loop.
-- `new skill via create-skill: <kebab-name>`: hand creation to `create-skill`. Do not invent the shape ad hoc.
+- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to the `skill-creator` skill and run its draft / test / iterate loop.
+- `tune when_to_use: <skill path>` (the skill exists but didn't trigger when it should have): hand to `skill-creator` and run its repair and evaluation steps on the skill's `when_to_use`, which is what activates a registered skill.
+- `new skill via skill-creator: <kebab-name>`: hand creation to `skill-creator`. Do not invent the shape ad hoc.
 
 If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 

@@ -6,28 +6,28 @@ disable-model-invocation: true
 
 # How
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default `grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default `claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Explorers run on `pstack-scout`, and every explainer runs on `pstack-judge`. Each brief opens with "Read `<root>/upstream/skills/how/references/<template>` in full. Your prompt is the text below its first `---` line, or the whole file when it has none." and then gives each placeholder's value under its name.
 
 ## 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md` without the explorer-findings section. Go to step 4.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md`. Its brief says no explorers ran, so it skips the Explorer Findings section and explores the code itself. Go to step 4.
 - **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): go to step 2.
 
 When in doubt, take the simple path.
 
 ## 2. Explore (complex only)
 
-Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in a single message, each with `references/explorer-prompt.md` and its angle filled in.
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn one explorer per angle, each with `references/explorer-prompt.md` and its angle filled in.
+
+Before spawning, pick a new folder, `<TEMP>/pstack/how-<HHmmss>`, where `<TEMP>` is the `TEMP` of `shell`. Each explorer brief names its output file, `<folder>/<tag>.md`.
 
 ## 3. Synthesize (complex only)
 
-Once all explorers have returned, spawn one explainer with `references/explainer-prompt.md` and every explorer's findings filled in.
+Once all explorers have returned, spawn one explainer with `references/explainer-prompt.md`. Its `{EXPLORER_FINDINGS_ALL}` holds "Read each file in full:" and every explorer's output path.
 
 ## 4. Present
 

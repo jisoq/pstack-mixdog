@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Show me your work
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
 Keep one canonical log.
 
 ## The format
@@ -37,7 +35,7 @@ ts	phase	decision	why	evidence	result
 
 Write each entry the way you'd tell a teammate what you did. Plain words, concrete actions, no AI speak or abstract jargon (the **unslop** skill applies to log text too).
 
-Use the helper `scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <result>`. It stamps `ts`, writes the header on first use, strips stray tabs/newlines, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote. A bare `printf` appending a row works too, but mind those same bytes if cells come from generated or user-supplied text.
+Use the helper through `shell`, with the Git Bash that sits beside `git`: `& (Join-Path (Split-Path (Split-Path (Get-Command git).Source)) 'bin\bash.exe') <root>/upstream/skills/show-me-your-work/scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <result>`. It stamps `ts`, writes the header on first use, strips stray tabs/newlines, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote. Appending a row by hand works too, but mind those same bytes if cells come from generated or user-supplied text.
 
 Log decision points and checkpoints, not every action: a fork chosen, a unit completed with its verification result, a pivot or revert with its trigger, a blocker surfaced, a gate fixed. For loop runs, one row per iteration. Skip the trivial and self-evident.
 
@@ -56,7 +54,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Read this run's transcript under the active workspace's `agent-transcripts/` directory (the system prompt names the path). Don't glob across `~/.cursor/projects/*/`. That reads unrelated private chats. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
+At the end of the run, before handing back, check the log told the truth. This run's conversation is in your own context. For parts lost to compaction, the lead reads just those items with `session` `read` on this conversation's id from `session` `status`. A subagent has no `session` tool, so it audits from its own context and names in its report any stretch it no longer holds. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -64,20 +62,20 @@ At the end of the run, before handing back, check the log told the truth. Read t
 
 Correct the log, not the story. The audit never edits or removes a row, even an invented one. When a row records neither a real decision nor a real action, or its claim or evidence is wrong, add a row that supersedes it with what actually happened and a pointer that resolves. This audit does not check rows outside this run's stretches. If this run's own work shows one of them is wrong, supersede it like any wrong call.
 
-## Cross-model review of the trail
+## Review of the trail
 
-Before handing back, spawn a subagent on a different model family from the one that did the work. Self-review is not a substitute. The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Before handing back, run a review of the trail on `pstack-judge`. The reviewer reads the audit trail and the run's conversation, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. When the review is delegated, write a digest of the conversation first, as in the audit above, to `<TEMP>/pstack/show-me-your-work-<HHmmss>/digest.md`, where `<TEMP>` is the `TEMP` of `shell`, and the reviewer reads that.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.
 - Choices that look risky in hindsight (premature, scope-creeping, papering over a symptom).
 - Gaps the user would otherwise miss on a casual skim.
 
-Every reply for a run that produced a trail ends with an "Attention" section. Lead with the reviewer's model on its own line (`reviewed by <model>`), then list each flag pointing to specific rows or moments. "No flags" is a valid value. The model name is not.
+Every reply for a run that produced a trail ends with an "Attention" section. Lead with the reviewer on its own line (`reviewed by pstack-judge`, or `reviewed by lead` when you ran the review yourself), then list each flag pointing to specific rows or moments. "No flags" is a valid value. A missing reviewer line is not.
 
 ## Reviewing the trail
 
-Read top to bottom, follow the evidence pointers, spot-check. GitHub renders a committed TSV as a table. `column -s$'\t' -t decisions.tsv` renders it in a terminal.
+Read top to bottom, follow the evidence pointers, spot-check. GitHub renders a committed TSV as a table. ``Import-Csv decisions.tsv -Delimiter "`t" | Format-Table`` renders it in PowerShell.
 
 ## Composing this skill
 

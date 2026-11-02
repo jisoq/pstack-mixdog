@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 
-// Renders the Mixdog pstack plugin from the pinned upstream checkout plus harness/.
-// Mirrors scripts/generate-pstack-harness-trees.mjs in cursor/plugins, which renders the Claude Code tree.
+// Generates the Mixdog plugin's plugin.json and $pstack-<name> skills from upstream/ and harness/, and checks that
+// upstream/, the hand-ported pstack text that scripts/sync.mjs merges from cursor/plugins, is ready to ship.
 
-import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import vm from "node:vm";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { values: options } = parseArgs({
   options: {
     check: { type: "boolean", default: false },
-    upstream: { type: "string", default: join(ROOT, ".cache", "cursor-plugins") },
+    upstream: { type: "string", default: join(ROOT, "upstream") },
     lock: { type: "string", default: join(ROOT, "upstream.lock.json") },
     harness: { type: "string", default: join(ROOT, "harness") },
     out: { type: "string", default: ROOT },
@@ -24,31 +23,24 @@ const UPSTREAM = resolve(options.upstream);
 const LOCK = resolve(options.lock);
 const HARNESS = resolve(options.harness);
 const OUT = resolve(options.out);
-const PSTACK = join(UPSTREAM, "pstack");
-const SKILLS = join(PSTACK, "skills");
-const GENERATOR = "scripts/generate-pstack-harness-trees.mjs";
-const ADAPTER = "docs/harness/mixdog.md";
-const GUIDE = "docs/guide";
-// The Poteto mode workflow and every pstack-<name> skill read this one file, so it sits beside the adapter.
-const ENTRY = "upstream/docs/harness/mixdog-entry.md";
+// Links resolve from the plugin folder, which holds upstream/, harness/, and the generated files.
+const PLUGIN = dirname(UPSTREAM);
+const SOURCE = relative(PLUGIN, UPSTREAM);
 // The output root is the plugin repo, so everything else in it is hand-written and never touched.
-const OWNED = ["plugin.json", "skills", "upstream"];
+const OWNED = ["plugin.json", "skills"];
+// The Poteto mode workflow records the plugin version, so a change to any of these makes its next conversation resync.
+const STAMPED = ["WORKFLOW.md", "agents.md", "INSTALL.md"];
 const PORT_AUTHOR = "jisoq";
 const PLUGIN_REPOSITORY = "https://github.com/jisoq/pstack-mixdog";
-const OWNED_DIRS = ["skills", "upstream"];
 const COMMAND = "node scripts/build.mjs";
-const LINK = /\]\(([^)\s]+)\)/g;
+// An inline link with an optional title, and a reference definition that is not a footnote.
+const LINK = /\]\(([^)\s]+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)|^ {0,3}\[(?!\^)[^\]]+\]:[ \t]*<?([^\s>]+)>?/gm;
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PLACEHOLDER = /\{\{[A-Z][A-Z0-9_]*\}\}/g;
+// The marker lines that scripts/sync.mjs leaves through git merge-file --diff3.
+const CONFLICT_MARKER = /^(?:(?:<{7}|\|{7}|>{7}) |={7}\r?$)/;
 // Mixdog's skill validator warns above this, and its UI shows the description.
 const DESCRIPTION_MAX = 100;
-// Names that Mixdog maps but upstream's Claude Code tree does not need to.
-const EXTRA_TERMS = [
-  { key: "cursor-team-kit", re: /cursor-team-kit/ },
-  { key: "create-skill", re: /(?<![\w-])create-skill(?![\w-])/ },
-  { key: "/loop", re: /\/loop\b/ },
-  { key: "bun", re: /\bbun\b/ },
-];
 
 // Paths inside the project print relative to it, others in full.
 function show(path) {
@@ -60,16 +52,12 @@ function rel(base, path) {
   return relative(base, path).split(sep).join("/");
 }
 
-const SOURCE_SKIP = new Set([".DS_Store", "node_modules"]);
-// Upstream scripts install their own dependencies into node_modules at run time (watch-pr's bootstrap), so the
-// output inventory leaves those folders alone; every other stale file in an owned path is still reconciled.
-const OUTPUT_SKIP = new Set(["node_modules"]);
-
-function walk(dir, skip = SOURCE_SKIP) {
+// Upstream scripts install their own dependencies into node_modules at run time (watch-pr's bootstrap).
+function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
-    if (skip.has(name)) return [];
+    if (name === "node_modules") return [];
     const path = join(dir, name);
-    return statSync(path).isDirectory() ? walk(path, skip) : [path];
+    return statSync(path).isDirectory() ? walk(path) : [path];
   });
 }
 
@@ -85,19 +73,6 @@ function has(files, path) {
   return files.has(path) || [...files.keys()].some((key) => key.startsWith(`${path}/`));
 }
 
-// The path a relative link in `from` points at, relative to the same root as `from`.
-function linkPath(from, href) {
-  const target = href.replace(/[#?].*/, "");
-  if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target)) return undefined;
-  return posix.join(posix.dirname(from), target).replace(/\/$/, "");
-}
-
-// The pstack-relative path that a relative link in `from` points at, if that path exists upstream.
-function resolveLink(from, href) {
-  const path = linkPath(from, href);
-  return path !== undefined && existsSync(join(PSTACK, path)) ? path : undefined;
-}
-
 function prune(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -105,74 +80,6 @@ function prune(dir) {
     prune(path);
     if (readdirSync(path).length === 0) rmdirSync(path);
   }
-}
-
-// Applies each `git diff` in harness/patches to the copied upstream files. A hunk applies only where its
-// old lines appear exactly once, so an upstream change under a hunk fails the build instead of moving it.
-function applyPatches(files) {
-  const dir = join(HARNESS, "patches");
-  if (!existsSync(dir)) return [];
-  const problems = [];
-  for (const name of readdirSync(dir).filter((name) => name.endsWith(".patch")).sort()) {
-    const source = show(join(dir, name));
-    const lines = readFileSync(join(dir, name), "utf8").split("\n");
-    let path;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line || line.startsWith("diff --git ") || line.startsWith("index ")) continue;
-      const from = line.match(/^--- a\/pstack\/(.+)$/);
-      if (from) {
-        path = lines[i + 1] === `+++ b/pstack/${from[1]}` ? from[1] : undefined;
-        if (!path) problems.push(`${source} line ${i + 1} does not patch one existing pstack/ file`);
-        else if (!files.has(path)) problems.push(`${source} patches pstack/${path}, which the build does not copy`);
-        i++;
-        continue;
-      }
-      const hunk = line.match(/^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/);
-      if (!hunk || !path) {
-        problems.push(`${source} line ${i + 1} is not part of a hunk that edits a pstack/ file: ${line}`);
-        break;
-      }
-      const old = [];
-      const now = [];
-      let [oldCount, newCount] = [Number(hunk[1] ?? 1), Number(hunk[2] ?? 1)];
-      while (oldCount > 0 || newCount > 0) {
-        const body = lines[++i];
-        const kind = body?.[0];
-        if (kind !== " " && kind !== "-" && kind !== "+") break;
-        if (kind !== "+") {
-          old.push(body.slice(1));
-          oldCount--;
-        }
-        if (kind !== "-") {
-          now.push(body.slice(1));
-          newCount--;
-        }
-      }
-      if (oldCount !== 0 || newCount !== 0) {
-        problems.push(`${source} has a corrupt hunk at ${hunk[0]}`);
-        break;
-      }
-      if (old.length === 0) {
-        problems.push(`${source} hunk ${hunk[0]} has no old lines to anchor it in pstack/${path}. Regenerate the patch with context lines.`);
-        continue;
-      }
-      if (!files.has(path)) continue;
-      const entry = files.get(path);
-      const text = entry.bytes.toString("utf8");
-      const before = old.map((l) => `${l}\n`).join("");
-      const at = [];
-      for (let k = text.indexOf(before); k !== -1; k = text.indexOf(before, k + 1)) if (k === 0 || text[k - 1] === "\n") at.push(k);
-      if (at.length !== 1) {
-        problems.push(
-          `${source} no longer applies to pstack/${path}: its hunk ${hunk[0]} matches ${at.length} places in the pinned upstream. Rebase the patch on it.`,
-        );
-        continue;
-      }
-      entry.bytes = Buffer.from(text.slice(0, at[0]) + now.map((l) => `${l}\n`).join("") + text.slice(at[0] + before.length));
-    }
-  }
-  return problems;
 }
 
 function fail(problems) {
@@ -183,132 +90,49 @@ function fail(problems) {
 
 function main() {
   const lock = JSON.parse(readFileSync(LOCK, "utf8"));
-  const git = (...args) => execFileSync("git", ["-C", UPSTREAM, ...args], { encoding: "utf8" });
-  const head = git("rev-parse", "HEAD").trim();
-  const changes = git("status", "--porcelain").split("\n").filter(Boolean);
-  const blockers = [];
-  if (head !== lock.commit) blockers.push(`${show(UPSTREAM)} is at ${head}, but ${show(LOCK)} pins ${lock.commit}. Run node scripts/sync.mjs.`);
-  if (changes.length > 0) blockers.push(`${show(UPSTREAM)} has local changes: ${changes.join(", ")}`);
-  if (blockers.length > 0) return fail(blockers);
-
-  // Upstream's inventory of Cursor names stays the source of truth, so read it from the pinned generator.
-  let terms;
-  let routeKey;
-  try {
-    const source = readFileSync(join(UPSTREAM, GENERATOR), "utf8");
-    const termsSource = source.match(/^const TERMS = (\[[\s\S]*?^\]);/m)?.[1];
-    const routeSource = source.match(/^const ROUTE_KEY = ("[^"\n]*");/m)?.[1];
-    if (!termsSource || !routeSource) throw new Error('no `const TERMS = [...]` or `const ROUTE_KEY = "..."`');
-    const upstreamTerms = vm.runInNewContext(termsSource);
-    const isTerm = (term) => typeof term?.key === "string" && Object.prototype.toString.call(term.re) === "[object RegExp]";
-    if (!Array.isArray(upstreamTerms) || !upstreamTerms.every(isTerm)) throw new Error("TERMS is not a list of { key, re }");
-    terms = [...upstreamTerms, ...EXTRA_TERMS];
-    routeKey = vm.runInNewContext(routeSource);
-  } catch (error) {
-    return fail([`upstream ${GENERATOR} changed shape (${error.message}). Update how scripts/build.mjs reads TERMS and ROUTE_KEY.`]);
-  }
-
-  const upstreamSkills = readdirSync(SKILLS).filter((name) => existsSync(join(SKILLS, name, "SKILL.md"))).sort();
+  const manifest = JSON.parse(readFileSync(join(UPSTREAM, "plugin.json"), "utf8"));
   const excludedList = join(HARNESS, "excluded-skills.json");
+  const directList = join(HARNESS, "direct-skills.json");
+  const directTemplate = join(HARNESS, "DIRECT-SKILL.md");
   const excluded = JSON.parse(readFileSync(excludedList, "utf8"));
-  const skills = upstreamSkills.filter((name) => !excluded.includes(name));
-
-  function classify(skill) {
-    const dir = join(SKILLS, skill);
-    const others = skills.filter((name) => name !== skill).join("|");
-    const route = new RegExp(`the \\*\\*(?<bold>${others})\\*\\* skill|\`/(?<command>${others})\``, "g");
-    const linksToSkill = (line, name) => line.includes(`(../${name}/`);
-    const namesBareSkill = (line) =>
-      [...line.matchAll(route)].some(({ groups }) => !linksToSkill(line, groups.bold ?? groups.command));
-    const usesCursorNames = new Set();
-    for (const path of walk(dir).filter((path) => path.endsWith(".md"))) {
-      const text = readFileSync(path, "utf8");
-      for (const term of terms) if (term.re.test(text)) usesCursorNames.add(term.key);
-      if (text.split("\n").some(namesBareSkill)) usesCursorNames.add(routeKey);
-    }
-    const text = readFileSync(join(dir, "SKILL.md"), "utf8");
-    const wrap = usesCursorNames.size > 0 && /^# /m.test(text);
-    return { usesCursorNames, wrap };
-  }
-
-  const classes = new Map(skills.map((skill) => [skill, classify(skill)]));
+  const terms = JSON.parse(readFileSync(join(HARNESS, "cursor-terms.json"), "utf8")).map(({ key, re, everywhere }) => ({ key, re: new RegExp(re), everywhere }));
+  // Code and the harness's own text legitimately use some listed words, such as a cursor variable or a model id.
+  const anywhere = terms.filter(({ everywhere }) => everywhere);
   const problems = [];
-  for (const name of excluded) {
-    if (!upstreamSkills.includes(name)) problems.push(`${show(excludedList)} lists ${name}, which is not an upstream pstack skill`);
-  }
-  const users = new Map();
-  for (const [skill, { usesCursorNames, wrap }] of classes) {
-    if (usesCursorNames.size > 0 && !wrap) problems.push(`pstack/skills/${skill}/SKILL.md uses Cursor names but has no H1`);
-    for (const key of usesCursorNames) users.set(key, [...(users.get(key) ?? []), skill]);
-    const frontmatter = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+  const scan = (name, text, list) =>
+    text.split("\n").forEach((line, i) => {
+      for (const { key, re } of list) if (re.test(line)) problems.push(`${name}:${i + 1} has the Cursor-only term ${key}`);
+    });
+
+  const skillsDir = join(UPSTREAM, "skills");
+  const skills = readdirSync(skillsDir).filter((name) => existsSync(join(skillsDir, name, "SKILL.md"))).sort();
+  for (const skill of skills) {
+    const path = `${SOURCE}/skills/${skill}`;
+    const frontmatter = readFileSync(join(skillsDir, skill, "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
     const name = frontmatter.match(/^name:(.*)$/m)?.[1].trim().replace(/^(["'])(.*)\1$/, "$2");
-    if (name !== skill) problems.push(`pstack/skills/${skill}/SKILL.md has name ${JSON.stringify(name ?? "")}, not its folder name ${skill}`);
-    if (!SKILL_NAME.test(skill) || skill.length > 64) problems.push(`pstack/skills/${skill} is not lowercase words joined by hyphens, at most 64 characters`);
+    if (name !== skill) problems.push(`${path}/SKILL.md has name ${JSON.stringify(name ?? "")}, not its folder name ${skill}`);
+    if (!SKILL_NAME.test(skill) || skill.length > 64) problems.push(`${path} is not lowercase words joined by hyphens, at most 64 characters`);
   }
-  const adapter = readFileSync(join(HARNESS, "adapter.md"));
-  for (const [key, using] of users) {
-    if (!adapter.toString("utf8").includes(key)) problems.push(`${show(join(HARNESS, "adapter.md"))} has no row for ${key}, used by ${using.join(", ")}`);
-  }
-
-  // Skills read the adapter, the guide, the agents, and the README at runtime, so Mixdog never fetches them.
-  const copies = [
-    ...walk(SKILLS).filter((path) => !excluded.includes(rel(SKILLS, path).split("/")[0])),
-    ...walk(join(PSTACK, "agents")),
-    ...walk(join(PSTACK, GUIDE)),
-    ...["README.md", "LICENSE", "plugin.json"].map((name) => join(PSTACK, name)),
-  ];
-  const files = new Map(copies.map((path) => [rel(PSTACK, path), file(path)]));
-  problems.push(...applyPatches(files));
-  files.set(ADAPTER, { bytes: adapter, executable: false });
-  const line =
-    `In Mixdog, read [the Mixdog adapter](../../${ADAPTER}) once per session before you follow this skill. ` +
-    "It maps the Cursor names in pstack skills to Mixdog.";
-  for (const [skill, { wrap }] of classes) {
-    const entry = files.get(`skills/${skill}/SKILL.md`);
-    if (wrap) entry.bytes = Buffer.from(entry.bytes.toString("utf8").replace(/^(# .*)\n+/m, `$1\n\n${line}\n\n`));
-  }
-  for (const [path, entry] of files) {
-    if (!path.endsWith(".md")) continue;
-    entry.bytes = Buffer.from(
-      entry.bytes.toString("utf8").replace(LINK, (link, href) => {
-        const target = resolveLink(path, href);
-        if (!target || target.split("/")[0] === ".." || has(files, target)) return link;
-        const kind = statSync(join(PSTACK, target)).isDirectory() ? "tree" : "blob";
-        return `](${lock.repository}/${kind}/${lock.commit}/pstack/${target}${href.slice(href.search(/[#?]|$/))})`;
-      }),
-    );
-  }
-  // Links to pstack files that the tree leaves out already point at the pinned commit, so a failure here is a link that leaves pstack/.
-  for (const [path, entry] of files) {
-    if (!path.endsWith(".md")) continue;
-    for (const [, href] of entry.bytes.toString("utf8").matchAll(LINK)) {
-      const target = resolveLink(path, href);
-      if (target && !has(files, target)) problems.push(`upstream/${path} links to ${href}, which is not in the tree`);
-    }
+  // Any leftover, such as a folder whose SKILL.md is gone, would still ship in the plugin.
+  for (const skill of excluded) {
+    if (existsSync(join(skillsDir, skill))) problems.push(`${SOURCE}/skills/${skill} is excluded by ${show(excludedList)}. Delete it.`);
   }
 
-  const manifest = JSON.parse(files.get("plugin.json").bytes.toString("utf8"));
-  const rendered = new Map([...files].map(([path, entry]) => [`upstream/${path}`, entry]));
-  const entryTemplate = join(HARNESS, "ENTRY.md");
-  const entry = readFileSync(entryTemplate, "utf8")
-    .replaceAll("{{PSTACK_VERSION}}", () => manifest.version)
-    .replaceAll("{{UPSTREAM_COMMIT}}", () => lock.commit.slice(0, 12))
-    .replaceAll("{{SKILL_NAMES}}", () => skills.map((skill) => `\`${skill}\``).join(", "));
-  rendered.set(ENTRY, textFile(entry));
+  const stamp = createHash("sha256")
+    .update(Buffer.concat(STAMPED.map((name) => readFileSync(join(HARNESS, name)))))
+    .digest("hex")
+    .slice(0, 8);
   const { description, homepage, license, keywords } = manifest;
-  const version = `${manifest.version}+mixdog.${lock.commit.slice(0, 7)}`;
+  const version = `${manifest.version}+mixdog.${lock.commit.slice(0, 7)}.${stamp}`;
   // Mixdog shows only one author string, so the port credit rides in it after the upstream author.
   const upstreamAuthor = typeof manifest.author === "string" ? manifest.author : manifest.author.name;
   const author = `${upstreamAuthor} (ported to Mixdog by ${PORT_AUTHOR})`;
   const plugin = { name: "pstack", displayName: "pstack", version, description, author, homepage, repository: PLUGIN_REPOSITORY, license, keywords };
-  rendered.set("plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`));
-  const directList = join(HARNESS, "direct-skills.json");
-  const directTemplate = join(HARNESS, "DIRECT-SKILL.md");
+  const rendered = new Map([["plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`)]]);
   const template = readFileSync(directTemplate, "utf8");
-  const harnessSkills = [{ source: entryTemplate, path: ENTRY, text: entry }];
   for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
     if (excluded.includes(name)) problems.push(`${show(directList)} lists ${name}, which ${show(excludedList)} excludes`);
-    else if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not an upstream pstack skill`);
+    else if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not a pstack skill in ${SOURCE}/skills`);
     if (typeof description !== "string" || description.trim() === "") problems.push(`${show(directList)} has no description for ${name}`);
     else if (/[\r\n]/.test(description)) problems.push(`${show(directList)} has a multi-line description for ${name}`);
     else if (description.length > DESCRIPTION_MAX) {
@@ -317,17 +141,49 @@ function main() {
     if (typeof description === "string" && /[<>]/.test(description)) {
       problems.push(`${show(directList)} has a description with < or > for ${name}, which Mixdog's skill validator rejects`);
     }
-    const path = `skills/pstack-${name}/SKILL.md`;
     // A JSON string is a YAML double-quoted scalar, so any one-line description stays one frontmatter value.
     const text = template.replaceAll("{{NAME}}", () => name).replaceAll("{{DESCRIPTION}}", () => JSON.stringify(description));
-    rendered.set(path, textFile(text));
-    harnessSkills.push({ source: directTemplate, path, text });
+    rendered.set(`skills/pstack-${name}/SKILL.md`, textFile(text));
   }
-  for (const { source, path, text } of harnessSkills) {
-    for (const placeholder of new Set(text.match(PLACEHOLDER))) problems.push(`${show(source)} has unfilled placeholder ${placeholder}`);
-    for (const [, href] of text.matchAll(LINK)) {
-      const target = linkPath(path, href);
-      if (target !== undefined && !has(rendered, target)) problems.push(`${show(source)} links to ${href}, which is not a rendered file`);
+
+  // A relative link resolves from the plugin folder, with the generated files as this build writes them.
+  const resolves = (from, href) => {
+    const target = href.replace(/[#?].*/, "");
+    if (!target || target.startsWith("/") || /^[a-z][a-z0-9+.-]*:/i.test(target)) return true;
+    const path = posix.join(posix.dirname(from), target).replace(/\/$/, "");
+    if (path === ".." || path.startsWith("../")) return false;
+    if (OWNED.some((name) => path === name || path.startsWith(`${name}/`))) return has(rendered, path);
+    return existsSync(join(PLUGIN, path));
+  };
+  for (const path of walk(UPSTREAM)) {
+    const name = rel(PLUGIN, path);
+    const bytes = readFileSync(path);
+    if (bytes.includes(0)) continue;
+    const text = bytes.toString("utf8");
+    const lines = text.split("\n");
+    const marker = lines.findIndex((line) => CONFLICT_MARKER.test(line));
+    if (marker !== -1) problems.push(`${name} has merge conflict markers, the first on line ${marker + 1}. Resolve them with harness/PORTING.md.`);
+    const prose = name.endsWith(".md") && [`${SOURCE}/skills/`, `${SOURCE}/agents/`].some((dir) => name.startsWith(dir));
+    // Scripts stay as upstream wrote them, so they and their docs answer only to the terms that hold anywhere.
+    const scripts = name.split("/").slice(0, -1).includes("scripts");
+    if (prose || scripts) scan(name, text, scripts ? anywhere : terms);
+    if (!prose) continue;
+    for (const [, inline, reference] of text.matchAll(LINK)) {
+      const href = inline ?? reference;
+      if (!resolves(name, href)) problems.push(`${name} links to ${href}, which does not exist`);
+    }
+  }
+  // The workflow and install read these; PORTING.md and cursor-terms.json name Cursor on purpose.
+  for (const path of [...STAMPED, "DIRECT-SKILL.md", "excluded-skills.json", "direct-skills.json"].map((name) => join(HARNESS, name))) {
+    scan(show(path), readFileSync(path, "utf8"), anywhere);
+  }
+  for (const [path, { bytes }] of rendered) {
+    if (!path.endsWith(".md")) continue;
+    const text = bytes.toString("utf8");
+    for (const placeholder of new Set(text.match(PLACEHOLDER))) problems.push(`${show(directTemplate)} has unfilled placeholder ${placeholder}`);
+    for (const [, inline, reference] of text.matchAll(LINK)) {
+      const href = inline ?? reference;
+      if (!resolves(path, href)) problems.push(`${show(directTemplate)} links to ${href}, which does not exist`);
     }
   }
   if (problems.length > 0) return fail(problems);
@@ -335,7 +191,7 @@ function main() {
   const onDisk = new Map(
     OWNED.map((name) => join(OUT, name))
       .filter((path) => existsSync(path))
-      .flatMap((path) => (statSync(path).isDirectory() ? walk(path, OUTPUT_SKIP) : [path]))
+      .flatMap((path) => (statSync(path).isDirectory() ? walk(path) : [path]))
       .map((path) => [rel(OUT, path), file(path)]),
   );
   const same = (want, have) => want.bytes.equals(have.bytes) && want.executable === have.executable;
@@ -362,7 +218,7 @@ function main() {
     rmSync(join(OUT, path));
     deleted++;
   }
-  for (const name of OWNED_DIRS) if (existsSync(join(OUT, name))) prune(join(OUT, name));
+  if (existsSync(join(OUT, "skills"))) prune(join(OUT, "skills"));
   let added = 0;
   let changed = 0;
   for (const [path, want] of rendered) {
@@ -374,10 +230,7 @@ function main() {
     if (have) changed++;
     else added++;
   }
-  const wrapped = [...classes.values()].filter(({ wrap }) => wrap).length;
-  console.log(
-    `${skills.length} skills, ${wrapped} SKILL.md files with the Mixdog adapter line; ${where}: ${added} added, ${changed} changed, ${deleted} deleted`,
-  );
+  console.log(`${skills.length} skills, ${rendered.size - 1} $pstack-<name> skills; ${where}: ${added} added, ${changed} changed, ${deleted} deleted`);
   return 0;
 }
 

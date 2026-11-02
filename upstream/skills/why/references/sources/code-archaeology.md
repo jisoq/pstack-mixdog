@@ -15,7 +15,7 @@ The most trustworthy source, tied directly to the code, and the most complete. E
 
 ## How to search it
 
-Expand the seed commit list:
+Expand the seed commit list through the `git` tool:
 
 ```bash
 # History through renames
@@ -37,7 +37,7 @@ git show <hash>
 git log <old>..<new> -p -- <file>
 ```
 
-Look for out-of-band docs:
+Look for out-of-band docs with the `grep` tool, using each `rg` line's pattern, glob, and path:
 
 ```bash
 # ADRs often live in docs/adr/ or similar

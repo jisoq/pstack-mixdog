@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Prove It Works
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
 Verify every task output by checking the real thing directly. Do not infer from proxies, self-reports, or "it compiles."
 
 **Why:** Unverified work has unknown correctness. Indirect verification (file mtimes, output freshness, agent self-reports, cached screenshots) feels cheaper than direct observation. Acting on a wrong inference costs far more than checking the source.

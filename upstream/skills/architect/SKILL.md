@@ -6,13 +6,11 @@ disable-model-invocation: true
 
 # Architect
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
-Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives, then fill in code against the chosen sketch.
+Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple runner perspectives, then fill in code against the chosen sketch.
 
 ## Start
 
-Open a todolist with one entry per phase before starting.
+Open a `todo` list with `init`, one item per phase, before starting.
 
 1. Ground
 2. Sketch
@@ -28,9 +26,9 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt.
+Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `<root>/upstream/skills/architect/references/runner-prompt.md` by absolute path as each runner's prompt, with "Read `<path>` in full. Your prompt is the whole file."
 
-Take the runners from the `architect runners` line in the `pstack-models.mdc` rule, in place of the `arena runners` line. If the rule or that line is missing, use `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Alias and rejected entries follow the runner rules in the **arena** skill's Phase A.
+The runners are two seats, one on `pstack-code` and one on `pstack-verify`.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 
