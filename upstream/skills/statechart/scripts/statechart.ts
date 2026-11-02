@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { type ChildProcess, spawn } from "node:child_process";
+import { once } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,6 +50,24 @@ try {
 const codeOf = (error: unknown) =>
   error instanceof Error && "code" in error ? error.code : undefined;
 
+// Windows has no process groups. libuv instead puts each child started without detached in a job
+// that Windows ends with the parent, so the worker dies with this process and its Java dies with
+// the worker. The janitor is detached to outlive this process, and it removes the folders once
+// stdin closes. It retries because Windows keeps a file that a dying Java still holds open.
+const windows = process.platform === "win32";
+const WINDOWS_JANITOR = `const fs = require("node:fs");
+const remove = (dir, tries) => {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (error) {
+    if (!tries) throw error;
+    setTimeout(remove, 100, dir, tries - 1);
+  }
+};
+process.stdin.resume().on("close", () => {
+  for (const dir of process.argv.slice(1)) remove(dir, 100);
+});`;
+
 try {
   const configFile = flags.config ?? specFile.replace(/\.tla$/, ".cfg");
   if (!fs.existsSync(configFile))
@@ -86,6 +105,13 @@ try {
   let exitCode: number;
   try {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "statechart-"));
+    if (windows) {
+      janitor = spawn(process.execPath, ["-e", WINDOWS_JANITOR, stage, tmp], {
+        detached: true,
+        stdio: ["pipe", "ignore", "inherit"],
+      });
+      await once(janitor, "spawn");
+    }
     const runtime = process.versions.deno
       ? [
           "run",
@@ -108,12 +134,13 @@ try {
         ...(flags.view ? [flags.view] : []),
       ],
       {
-        detached: true,
+        detached: !windows,
         stdio: ["ignore", "inherit", "inherit"],
-        env: { ...process.env, TMPDIR: tmp },
+        env: { ...process.env, TMPDIR: tmp, ...(windows && { TEMP: tmp, TMP: tmp }) },
       },
     );
-    janitor = spawn(
+    if (windows) await once(worker, "spawn");
+    else janitor = spawn(
       "/bin/sh",
       [
         "-c",
@@ -129,7 +156,8 @@ try {
       worker.on("exit", (code) => resolve(code ?? 2)),
     );
     await Promise.race([stopped, exited]);
-    await killGroup(worker.pid as number);
+    if (windows) worker.kill();
+    else await killGroup(worker.pid as number);
     const verdict = await exited;
     if (stop) {
       console.error(`${stop} stopped the check, so the command wrote nothing.`);
@@ -140,6 +168,8 @@ try {
     } else if ((verdict === 0 || verdict === 1) && fs.existsSync(done)) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       try {
+        // Windows cannot rename a folder onto an existing one, even an empty one.
+        if (windows && fs.existsSync(dest)) fs.rmdirSync(dest);
         fs.renameSync(done, dest);
       } catch (error) {
         if (codeOf(error) !== "ENOTEMPTY" && codeOf(error) !== "EEXIST") throw error;
@@ -153,9 +183,15 @@ try {
       exitCode = verdict;
     } else exitCode = 2;
   } finally {
-    fs.rmSync(stage, { recursive: true, force: true });
-    if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
-    janitor?.kill("SIGKILL");
+    if (windows && janitor?.pid !== undefined) {
+      janitor.stdin?.end();
+      const [code] = await once(janitor, "exit");
+      if (code !== 0) throw new Error(`The command could not remove ${stage} or ${tmp}.`);
+    } else {
+      fs.rmSync(stage, { recursive: true, force: true });
+      if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
+      janitor?.kill("SIGKILL");
+    }
   }
   process.exit(exitCode);
 } catch (error) {

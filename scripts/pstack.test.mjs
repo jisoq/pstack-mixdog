@@ -242,6 +242,58 @@ describe("build", () => {
     assert.equal(p.build("--check").status, 0);
   });
 
+  const script = { "pstack/skills/beta/scripts/run.ts": "one\ntwo\nthree\n" };
+  const patch = {
+    "patches/beta.patch": `diff --git a/pstack/skills/beta/scripts/run.ts b/pstack/skills/beta/scripts/run.ts
+index 0000000..1111111 100644
+--- a/pstack/skills/beta/scripts/run.ts
++++ b/pstack/skills/beta/scripts/run.ts
+@@ -1,3 +1,4 @@
+ one
+-two
++TWO
++2.5
+ three
+`,
+  };
+
+  test("applies harness patches to the copied upstream files", (t) => {
+    const p = project(t, { upstream: script, harness: patch });
+    const result = p.build();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(p.read("upstream/skills/beta/scripts/run.ts"), "one\nTWO\n2.5\nthree\n");
+    assert.equal(p.read("upstream/skills/beta/SKILL.md"), UPSTREAM["pstack/skills/beta/SKILL.md"]);
+    assert.equal(p.build("--check").status, 0);
+  });
+
+  test("fails, naming the patch and the hunk, when the pinned upstream no longer matches a patch, and writes nothing", (t) => {
+    const p = project(t, { upstream: { "pstack/skills/beta/scripts/run.ts": "one\n2\nthree\n" }, harness: patch });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stdout,
+      /^FAIL .*patches[\\/]beta\.patch no longer applies to pstack\/skills\/beta\/scripts\/run\.ts: its hunk @@ -1,3 \+1,4 @@ matches 0 places in the pinned upstream\. Rebase the patch on it\.$/m,
+    );
+    assert.ok(!existsSync(p.out));
+  });
+
+  test("fails, naming the hunk, when a patch hunk has no old lines, and writes nothing", (t) => {
+    const insertion = {
+      "patches/beta.patch": `diff --git a/pstack/skills/beta/scripts/run.ts b/pstack/skills/beta/scripts/run.ts
+index 0000000..1111111 100644
+--- a/pstack/skills/beta/scripts/run.ts
++++ b/pstack/skills/beta/scripts/run.ts
+@@ -0,0 +1 @@
++one
+`,
+    };
+    const p = project(t, { upstream: { "pstack/skills/beta/scripts/run.ts": "" }, harness: insertion });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /^FAIL .*patches[\\/]beta\.patch hunk @@ -0,0 \+1 @@ has no old lines to anchor it in pstack\/skills\/beta\/scripts\/run\.ts\./m);
+    assert.ok(!existsSync(p.out));
+  });
+
   test("fails when the upstream generator changed shape", (t) => {
     const p = project(t, { upstream: { "scripts/generate-pstack-harness-trees.mjs": "export const TERMS = loadTerms();\n" } });
     const result = p.build();

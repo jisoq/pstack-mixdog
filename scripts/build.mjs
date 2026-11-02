@@ -105,6 +105,74 @@ function prune(dir) {
   }
 }
 
+// Applies each `git diff` in harness/patches to the copied upstream files. A hunk applies only where its
+// old lines appear exactly once, so an upstream change under a hunk fails the build instead of moving it.
+function applyPatches(files) {
+  const dir = join(HARNESS, "patches");
+  if (!existsSync(dir)) return [];
+  const problems = [];
+  for (const name of readdirSync(dir).filter((name) => name.endsWith(".patch")).sort()) {
+    const source = show(join(dir, name));
+    const lines = readFileSync(join(dir, name), "utf8").split("\n");
+    let path;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line || line.startsWith("diff --git ") || line.startsWith("index ")) continue;
+      const from = line.match(/^--- a\/pstack\/(.+)$/);
+      if (from) {
+        path = lines[i + 1] === `+++ b/pstack/${from[1]}` ? from[1] : undefined;
+        if (!path) problems.push(`${source} line ${i + 1} does not patch one existing pstack/ file`);
+        else if (!files.has(path)) problems.push(`${source} patches pstack/${path}, which the build does not copy`);
+        i++;
+        continue;
+      }
+      const hunk = line.match(/^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/);
+      if (!hunk || !path) {
+        problems.push(`${source} line ${i + 1} is not part of a hunk that edits a pstack/ file: ${line}`);
+        break;
+      }
+      const old = [];
+      const now = [];
+      let [oldCount, newCount] = [Number(hunk[1] ?? 1), Number(hunk[2] ?? 1)];
+      while (oldCount > 0 || newCount > 0) {
+        const body = lines[++i];
+        const kind = body?.[0];
+        if (kind !== " " && kind !== "-" && kind !== "+") break;
+        if (kind !== "+") {
+          old.push(body.slice(1));
+          oldCount--;
+        }
+        if (kind !== "-") {
+          now.push(body.slice(1));
+          newCount--;
+        }
+      }
+      if (oldCount !== 0 || newCount !== 0) {
+        problems.push(`${source} has a corrupt hunk at ${hunk[0]}`);
+        break;
+      }
+      if (old.length === 0) {
+        problems.push(`${source} hunk ${hunk[0]} has no old lines to anchor it in pstack/${path}. Regenerate the patch with context lines.`);
+        continue;
+      }
+      if (!files.has(path)) continue;
+      const entry = files.get(path);
+      const text = entry.bytes.toString("utf8");
+      const before = old.map((l) => `${l}\n`).join("");
+      const at = [];
+      for (let k = text.indexOf(before); k !== -1; k = text.indexOf(before, k + 1)) if (k === 0 || text[k - 1] === "\n") at.push(k);
+      if (at.length !== 1) {
+        problems.push(
+          `${source} no longer applies to pstack/${path}: its hunk ${hunk[0]} matches ${at.length} places in the pinned upstream. Rebase the patch on it.`,
+        );
+        continue;
+      }
+      entry.bytes = Buffer.from(text.slice(0, at[0]) + now.map((l) => `${l}\n`).join("") + text.slice(at[0] + before.length));
+    }
+  }
+  return problems;
+}
+
 function fail(problems) {
   // Every wrapper renders from one template, so a template problem repeats once per wrapper.
   for (const problem of new Set(problems)) console.log(`FAIL ${problem}`);
@@ -182,6 +250,7 @@ function main() {
     ...["README.md", "LICENSE", "plugin.json"].map((name) => join(PSTACK, name)),
   ];
   const files = new Map(copies.map((path) => [rel(PSTACK, path), file(path)]));
+  problems.push(...applyPatches(files));
   files.set(ADAPTER, { bytes: adapter, executable: false });
   const line =
     `In Mixdog, read [the Mixdog adapter](../../${ADAPTER}) once per session before you follow this skill. ` +
