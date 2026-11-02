@@ -17,9 +17,9 @@ Mixdog 대화창에서 두 가지를 요청합니다. PC마다 한 번이면 됩
 
 ### 기본 모델 배정
 
-pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 아래와 같고, `setup-pstack`이나 Mixdog 설정 화면에서 바꿀 수 있습니다. 정의 원본은 `harness/agents.md`입니다.
+pstack의 17개 역할은 다섯 에이전트로 묶입니다. 저는 ChatGPT Pro(월 $200)와 Claude Max를 구독해 Mixdog에 `openai-oauth`와 `anthropic-oauth`로 로그인해 두고, 아래처럼 씁니다. 이 배정이 `setup-pstack`이 처음 제안하는 기본값이고, `setup-pstack`이나 Mixdog 설정 화면에서 바꿀 수 있습니다. 정의 원본은 `harness/agents.md`입니다.
 
-| 에이전트 | 맡는 역할 | 기본 모델 |
+| 에이전트 | 맡는 역할 | 모델 |
 | --- | --- | --- |
 | `pstack-hard` | 가장 어려운 위임 (설계 전반, 동시성, 미묘한 알고리즘) | Claude Opus 5.5, effort max |
 | `pstack-judge` | 판단, 글, how 설명, why 종합, reflect 판단 | GPT-6 Astra, effort xhigh, fast |
@@ -27,7 +27,7 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 | `pstack-scout` | how 탐색, why 조사, reflect 도구 검토 | GPT-6.1 Terra, effort medium, fast |
 | `pstack-verify` | swarm 워커와 검증, 패널 둘째 자리 | GPT-6.1 Sol, effort Auto, fast |
 
-패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 로그인한 프로바이더의 모델이 한 계열뿐이면 `setup-pstack`은 두 에이전트를 같은 계열로 두는 것을 허용하고, 다른 계열 프로바이더에 로그인한 뒤 `setup-pstack`을 다시 실행하기 전까지는 패널이 교차 검증 없이 돈다고 알려 줍니다. 기본값은 `anthropic-oauth`와 `openai-oauth` 로그인을 전제로 합니다. 다른 로그인을 쓰는 PC에서는 `setup-pstack`이 해당 에이전트의 모델을 새로 고르게 합니다.
+패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 로그인한 프로바이더의 모델이 한 계열뿐이면 `setup-pstack`은 두 에이전트를 같은 계열로 두는 것을 허용하고, 다른 계열 프로바이더에 로그인한 뒤 `setup-pstack`을 다시 실행하기 전까지는 패널이 교차 검증 없이 돈다고 알려 줍니다. 구독이나 로그인이 다른 PC에서는 `setup-pstack`이 연결되지 않은 프로바이더를 쓰는 에이전트의 모델을 새로 고르게 합니다.
 
 ## 사용법
 
