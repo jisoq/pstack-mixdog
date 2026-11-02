@@ -16,7 +16,7 @@ pstack skills: {{SKILL_NAMES}}.
 ## Run it
 
 1. Read [the Mixdog adapter](mixdog.md) in full, once per conversation. Result: you know the Mixdog equivalent of every Cursor name pstack uses, and its Precedence section governs this task.
-2. Check that the session's agent list has `pstack-hard`, `pstack-judge`, `pstack-code`, `pstack-scout`, and `pstack-verify`. When one is missing, run `setup-pstack` first, as the adapter's Models section says. Result: every subagent role has its agent.
+2. Run the adapter's Agent sync, once per conversation. Result: the five pstack agents exist and match the plugin, and so does the Poteto mode workflow when it exists.
 3. Read `<pstack>/skills/<name>/SKILL.md` in full and follow it from its first step, mapping names through the adapter. Result: the skill's own first output, such as poteto-mode's restated goal and the matched playbook's todolist.
 4. When it routes to another pstack skill, read that skill's `SKILL.md` under `<pstack>/skills/` the same way. Never call `Skill` for it.
 

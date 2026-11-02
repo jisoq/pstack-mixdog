@@ -1,6 +1,6 @@
 # pstack agents for Mixdog
 
-pstack runs its subagents on five Mixdog workflow agents (`kind: agent`). Each one stands for a group of pstack roles, so a model change is a route change in Mixdog and never a rename. `setup-pstack` creates a missing agent from this file and sets its route. The adapter's Models section maps every pstack role to one of them.
+pstack runs its subagents on five Mixdog workflow agents (`kind: agent`). Each one stands for a group of pstack roles, so a model change is a route change in Mixdog and never a rename. The adapter's Agent sync creates a missing agent from this file, with its default route when that route's provider is signed in, and keeps every agent's description and body equal to this file. The adapter's Models section maps every pstack role to one of them.
 
 Every agent has the same body, so no Mixdog role text competes with the pstack brief:
 
@@ -18,4 +18,4 @@ You run one step of a pstack run. The brief is your whole task and role: follow 
 | `pstack-scout` | pstack runs only (Poteto mode or a $pstack-* skill): exploration and investigation. Never for other work. | `openai-oauth/gpt-6.1-terra`, effort `medium`, fast on |
 | `pstack-verify` | pstack runs only (Poteto mode or a $pstack-* skill): swarm workers, verification fan-out, and the second panel seat. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
 
-`pstack-code` and `pstack-verify` must stay on different model families whenever two families are available, because every pstack panel seats one of each. When the signed-in providers offer only one family, both run on it.
+`pstack-code` and `pstack-verify` should run on different model families, because every pstack panel seats one of each. When the signed-in providers offer only one family, both run on it, and Agent sync says the panels then have no cross-family check.

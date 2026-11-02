@@ -1,0 +1,10 @@
+# Install pstack in Mixdog
+
+The user asked you to install this plugin. Mixdog plugins ship only skills, so this file sets up the rest: the programs pstack's scripts need, the Poteto mode workflow, and the five pstack agents. Running it again is safe, because each step changes only what is missing or different.
+
+`<root>` is the absolute path of the folder that holds this file's `harness/` folder. It is the `root` that `setup` `status plugins` reports for the plugin whose source is `https://github.com/jisoq/pstack-mixdog`. `<adapter>` is `<root>/upstream/docs/harness/mixdog.md`.
+
+1. Programs. Run every check in the Dependencies section of `<adapter>`. For each missing program, tell the user in one sentence what it is and which pstack steps need it, from its Needed by column. Then ask with `ask_user`, multi-select, which to install. Install only the chosen ones, one at a time, with the row's command, and rerun its check. Result: each program is present or declined.
+2. Workflow. When `setup` `read_definition` finds no `poteto-mode` workflow, create it with `setup` `create_definition`: kind `workflow`, the id, name, and description from the frontmatter of `<root>/harness/WORKFLOW.md`, and the body below its frontmatter with `{{PLUGIN_ROOT}}` written as `<root>`. Never make it the active workflow. Result: the workflow exists.
+3. Agents. Follow the Agent sync section of `<adapter>`. Result: the five pstack agents exist and match `<root>/harness/agents.md`, and the workflow matches `<root>/harness/WORKFLOW.md`.
+4. Reply with what changed, each agent's model, and the declined programs, whose pstack steps are skipped until the user asks you to follow this file again. Then say how to start: pick Poteto mode in the composer's workflow selector for a conversation, or select a `$pstack-<name>` skill in any conversation. Say that agent models change in Mixdog's agent settings.
