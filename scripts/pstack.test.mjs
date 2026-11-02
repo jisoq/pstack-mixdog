@@ -129,8 +129,8 @@ describe("build", () => {
 
     const { description, homepage, license, keywords } = MANIFEST;
     const plugin = {
-      name: "pstack",
-      displayName: "pstack",
+      name: "pstack-mixdog",
+      displayName: "pstack-mixdog",
       version: `1.2.3+mixdog.0123456.${stamp(HARNESS)}`,
       description,
       author: "Lauren Tan (ported to Mixdog by jisoq)",
