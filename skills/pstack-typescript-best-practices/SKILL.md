@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-typescript-best-practices; never inferred fro
 
 # pstack-typescript-best-practices
 
-This runs the same thing as `$pstack /typescript-best-practices`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `typescript-best-practices` as the named skill. That skill's Scope section applies.
+This runs pstack's `typescript-best-practices` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `typescript-best-practices` as the named skill. Its Scope section applies.

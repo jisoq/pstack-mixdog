@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-create-verification-skill; never inferred fro
 
 # pstack-create-verification-skill
 
-This runs the same thing as `$pstack /create-verification-skill`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `create-verification-skill` as the named skill. That skill's Scope section applies.
+This runs pstack's `create-verification-skill` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `create-verification-skill` as the named skill. Its Scope section applies.

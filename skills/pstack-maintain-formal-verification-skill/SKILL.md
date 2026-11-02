@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-maintain-formal-verification-skill; never inf
 
 # pstack-maintain-formal-verification-skill
 
-This runs the same thing as `$pstack /maintain-formal-verification-skill`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `maintain-formal-verification-skill` as the named skill. That skill's Scope section applies.
+This runs pstack's `maintain-formal-verification-skill` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `maintain-formal-verification-skill` as the named skill. Its Scope section applies.

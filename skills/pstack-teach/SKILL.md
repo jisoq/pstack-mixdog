@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-teach; never inferred from the task.'
 
 # pstack-teach
 
-This runs the same thing as `$pstack /teach`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `teach` as the named skill. That skill's Scope section applies.
+This runs pstack's `teach` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `teach` as the named skill. Its Scope section applies.

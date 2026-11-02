@@ -47,16 +47,11 @@ const ROUTE_KEY = "Run another pstack skill";
 };
 const HARNESS = {
   "adapter.md": "# Mixdog adapter\n\n| Cursor | Mixdog |\n| --- | --- |\n| `AskQuestion` | ask |\n| Run another pstack skill | skill |\n| bun | npm |\n",
-  "SKILL.md": `---
-name: pstack
-description: pstack for Mixdog.
----
-
-# pstack
+  "ENTRY.md": `# pstack entry
 
 pstack {{PSTACK_VERSION}} at {{UPSTREAM_COMMIT}}. Skills: {{SKILL_NAMES}}.
 
-Read [the adapter](../../upstream/docs/harness/mixdog.md) and [alpha](../../upstream/skills/alpha/SKILL.md#steps).
+Read [the adapter](mixdog.md) and [alpha](../../skills/alpha/SKILL.md#steps).
 `,
   "DIRECT-SKILL.md": readFileSync(join(SCRIPTS, "..", "harness", "DIRECT-SKILL.md"), "utf8"),
   "direct-skills.json": "{}\n",
@@ -131,13 +126,12 @@ describe("build", () => {
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /^4 skills, 3 SKILL\.md files with the Mixdog adapter line; .*: \d+ added, 0 changed, 0 deleted$/m);
 
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack"]);
     const { description, author, homepage, repository, license, keywords } = MANIFEST;
     const plugin = { name: "pstack", displayName: "pstack", version: `1.2.3+mixdog.${p.sha.slice(0, 7)}`, description, author, homepage, repository, license, keywords };
     assert.equal(p.read("plugin.json"), `${JSON.stringify(plugin, null, 2)}\n`);
     assert.equal(
-      p.read("skills/pstack/SKILL.md"),
-      HARNESS["SKILL.md"].replace(
+      p.read("upstream/docs/harness/mixdog-entry.md"),
+      HARNESS["ENTRY.md"].replace(
         "pstack {{PSTACK_VERSION}} at {{UPSTREAM_COMMIT}}. Skills: {{SKILL_NAMES}}.",
         `pstack 1.2.3 at ${p.sha.slice(0, 12)}. Skills: \`alpha\`, \`beta\`, \`delta\`, \`gamma\`.`,
       ),
@@ -199,28 +193,28 @@ describe("build", () => {
     assert.match(result.stdout, /^FAIL upstream\/skills\/beta\/SKILL\.md links to \.\.\/\.\.\/\.\.\/scripts\/generate-pstack-harness-trees\.mjs, which is not in the tree$/m);
   });
 
-  test("fails on unfilled placeholders and unresolved links in harness/SKILL.md", (t) => {
-    const p = project(t, { harness: { "SKILL.md": "# pstack\n\n{{UNKNOWN_VALUE}} and [missing](../../upstream/skills/missing/SKILL.md).\n" } });
+  test("fails on unfilled placeholders and unresolved links in harness/ENTRY.md", (t) => {
+    const p = project(t, { harness: { "ENTRY.md": "# pstack entry\n\n{{UNKNOWN_VALUE}} and [missing](../../skills/missing/SKILL.md).\n" } });
     const result = p.build();
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .*SKILL\.md has unfilled placeholder \{\{UNKNOWN_VALUE\}\}$/m);
-    assert.match(result.stdout, /^FAIL .*SKILL\.md links to \.\.\/\.\.\/upstream\/skills\/missing\/SKILL\.md, which is not a rendered file$/m);
+    assert.match(result.stdout, /^FAIL .*ENTRY\.md has unfilled placeholder \{\{UNKNOWN_VALUE\}\}$/m);
+    assert.match(result.stdout, /^FAIL .*ENTRY\.md links to \.\.\/\.\.\/skills\/missing\/SKILL\.md, which is not a rendered file$/m);
     assert.ok(!existsSync(p.out));
   });
 
-  test("renders a pstack-<name> wrapper for each listed skill that sends the reader to the entry skill", (t) => {
+  test("renders a pstack-<name> wrapper for each listed skill that sends the reader to the entry file", (t) => {
     const description = `Run beta's "plain" steps: one line.`;
     const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: description }) } });
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta"]);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta"]);
     const wrapper = p.read("skills/pstack-beta/SKILL.md");
     const fields = frontmatter(wrapper);
     assert.equal(fields.name, "pstack-beta");
     assert.equal(fields.description, description);
     assert.equal(fields.when_to_use, "User selects $pstack-beta; never inferred from the task.");
-    assert.ok(wrapper.includes("](../pstack/SKILL.md)"), wrapper);
-    assert.ok(wrapper.includes("`$pstack /beta`"), wrapper);
+    assert.ok(wrapper.includes("](../../upstream/docs/harness/mixdog-entry.md)"), wrapper);
+    assert.ok(wrapper.includes("with `beta` as the named skill"), wrapper);
     assert.equal(p.build("--check").status, 0);
   });
 
@@ -239,12 +233,12 @@ describe("build", () => {
   test("removing a listed skill deletes its wrapper on the next build", (t) => {
     const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: "Run beta.", gamma: "Run gamma." }) } });
     assert.equal(p.build().status, 0);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta", "pstack-gamma"]);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta", "pstack-gamma"]);
 
     write(p.harness, { "direct-skills.json": JSON.stringify({ beta: "Run beta." }) });
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack", "pstack-beta"]);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta"]);
     assert.equal(p.build("--check").status, 0);
   });
 
@@ -276,7 +270,7 @@ describe("build", () => {
     const p = project(t);
     const before = p.build("--check");
     assert.equal(before.status, 1);
-    assert.match(before.stdout, /\/skills\/pstack\/SKILL\.md$/m);
+    assert.match(before.stdout, /\/upstream\/docs\/harness\/mixdog-entry\.md$/m);
     assert.ok(!existsSync(p.out));
 
     assert.equal(p.build().status, 0);
@@ -304,13 +298,13 @@ describe("build", () => {
 
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    // Changed: plugin.json and skills/pstack/SKILL.md, plus upstream alpha and README.md, whose links pin the commit.
+    // Changed: plugin.json and the entry file, plus upstream alpha and README.md, whose links pin the commit.
     assert.match(result.stdout, /^3 skills, 2 SKILL\.md files .*: 0 added, 4 changed, 2 deleted$/m);
     assert.ok(!existsSync(join(p.out, "upstream/skills/delta")));
     assert.ok(!existsSync(join(p.out, "upstream/stray")));
     assert.equal(statSync(p.out, { bigint: true }).ino, outId);
     assert.equal(statSync(unchanged).mtime.getFullYear(), 2000);
-    assert.match(p.read("skills/pstack/SKILL.md"), /Skills: `alpha`, `beta`, `gamma`\./);
+    assert.match(p.read("upstream/docs/harness/mixdog-entry.md"), /Skills: `alpha`, `beta`, `gamma`\./);
     assert.equal(p.build("--check").status, 0);
   });
 
@@ -351,7 +345,7 @@ describe("build", () => {
 
     const rebuild = p.build();
     assert.match(rebuild.stdout, /: 0 added, 0 changed, 1 deleted$/m);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack"]);
+    assert.deepEqual(readdirSync(join(p.out, "skills")), []);
     untouched();
   });
 

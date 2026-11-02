@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-create-formal-verification-skill; never infer
 
 # pstack-create-formal-verification-skill
 
-This runs the same thing as `$pstack /create-formal-verification-skill`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `create-formal-verification-skill` as the named skill. That skill's Scope section applies.
+This runs pstack's `create-formal-verification-skill` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `create-formal-verification-skill` as the named skill. Its Scope section applies.

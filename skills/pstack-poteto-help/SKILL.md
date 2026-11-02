@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-poteto-help; never inferred from the task.'
 
 # pstack-poteto-help
 
-This runs the same thing as `$pstack /poteto-help`. Read [the `pstack` skill](../pstack/SKILL.md) in full and follow it, with `poteto-help` as the named skill. That skill's Scope section applies.
+This runs pstack's `poteto-help` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `poteto-help` as the named skill. Its Scope section applies.

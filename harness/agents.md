@@ -12,10 +12,10 @@ You run one step of a pstack run. The brief is your whole task and role: follow 
 
 | Agent id | Description | Default route |
 | --- | --- | --- |
-| `pstack-hard` | pstack runs only ($pstack or Poteto mode): the hardest delegated changes. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort `max`, fast off |
-| `pstack-judge` | pstack runs only ($pstack or Poteto mode): judgment, prose, explainers, synthesizers. Never for other work. | `openai-oauth/gpt-6-astra`, effort `xhigh`, fast on |
-| `pstack-code` | pstack runs only ($pstack or Poteto mode): code delegates and the first panel seat. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort Auto, fast off |
-| `pstack-scout` | pstack runs only ($pstack or Poteto mode): exploration and investigation. Never for other work. | `openai-oauth/gpt-6.1-terra`, effort `medium`, fast on |
-| `pstack-verify` | pstack runs only ($pstack or Poteto mode): swarm workers, verification fan-out, and the second panel seat. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
+| `pstack-hard` | pstack runs only (Poteto mode or a $pstack-* skill): the hardest delegated changes. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort `max`, fast off |
+| `pstack-judge` | pstack runs only (Poteto mode or a $pstack-* skill): judgment, prose, explainers, synthesizers. Never for other work. | `openai-oauth/gpt-6-astra`, effort `xhigh`, fast on |
+| `pstack-code` | pstack runs only (Poteto mode or a $pstack-* skill): code delegates and the first panel seat. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort Auto, fast off |
+| `pstack-scout` | pstack runs only (Poteto mode or a $pstack-* skill): exploration and investigation. Never for other work. | `openai-oauth/gpt-6.1-terra`, effort `medium`, fast on |
+| `pstack-verify` | pstack runs only (Poteto mode or a $pstack-* skill): swarm workers, verification fan-out, and the second panel seat. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
 
 `pstack-code` and `pstack-verify` must stay on different model families, because every pstack panel seats one of each.
