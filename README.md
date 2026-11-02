@@ -22,12 +22,12 @@ pstack의 17개 역할은 다섯 에이전트로 묶입니다. 기본 모델은 
 | 에이전트 | 맡는 역할 | 기본 모델 |
 | --- | --- | --- |
 | `pstack-hard` | 가장 어려운 위임 (설계 전반, 동시성, 미묘한 알고리즘) | Claude Opus 5.5, effort max |
-| `pstack-judge` | 판단, 글, how 설명, why 종합, reflect 판단, 패널 첫째 자리 | GPT-6 Astra, effort xhigh, fast |
-| `pstack-code` | feature, refactoring, bug-fix, perf, hillclimb의 코드 위임, 패널 둘째 자리 | Claude Opus 5.5, effort Auto |
+| `pstack-judge` | 판단, 글, how 설명, why 종합, reflect 판단 | GPT-6 Astra, effort xhigh, fast |
+| `pstack-code` | feature, refactoring, bug-fix, perf, hillclimb의 코드 위임, 패널 첫째 자리 | Claude Opus 5.5, effort Auto |
 | `pstack-scout` | how 탐색, why 조사, reflect 도구 검토 | GPT-6.1 Terra, effort medium, fast |
-| `pstack-verify` | swarm 워커와 검증 | GPT-6.1 Sol, effort Auto, fast |
+| `pstack-verify` | swarm 워커와 검증, 패널 둘째 자리 | GPT-6.1 Sol, effort Auto, fast |
 
-패널(arena, architect, interrogate)은 `pstack-judge`와 `pstack-code`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 기본값은 `anthropic-oauth`와 `openai-oauth` 로그인을 전제로 합니다. 다른 로그인을 쓰는 PC에서는 `setup-pstack`이 해당 에이전트의 모델을 새로 고르게 합니다.
+패널(arena, architect, interrogate)은 `pstack-code`와 `pstack-verify`를 하나씩 띄워 교차 검증하므로, 두 에이전트는 서로 다른 계열 모델(예: GPT와 Claude)이어야 합니다. 기본값은 `anthropic-oauth`와 `openai-oauth` 로그인을 전제로 합니다. 다른 로그인을 쓰는 PC에서는 `setup-pstack`이 해당 에이전트의 모델을 새로 고르게 합니다.
 
 ## 사용법
 

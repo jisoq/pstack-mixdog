@@ -13,9 +13,9 @@ You run one step of a pstack run. The brief is your whole task and role: follow 
 | Agent id | Description | Default route |
 | --- | --- | --- |
 | `pstack-hard` | pstack runs only ($pstack or Poteto mode): the hardest delegated changes. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort `max`, fast off |
-| `pstack-judge` | pstack runs only ($pstack or Poteto mode): judgment, prose, explainers, synthesizers, first panel seat. Never for other work. | `openai-oauth/gpt-6-astra`, effort `xhigh`, fast on |
-| `pstack-code` | pstack runs only ($pstack or Poteto mode): code delegates and the second panel seat. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort Auto, fast off |
+| `pstack-judge` | pstack runs only ($pstack or Poteto mode): judgment, prose, explainers, synthesizers. Never for other work. | `openai-oauth/gpt-6-astra`, effort `xhigh`, fast on |
+| `pstack-code` | pstack runs only ($pstack or Poteto mode): code delegates and the first panel seat. Never for other work. | `anthropic-oauth/claude-opus-5-5`, effort Auto, fast off |
 | `pstack-scout` | pstack runs only ($pstack or Poteto mode): exploration and investigation. Never for other work. | `openai-oauth/gpt-6.1-terra`, effort `medium`, fast on |
-| `pstack-verify` | pstack runs only ($pstack or Poteto mode): swarm workers and verification fan-out. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
+| `pstack-verify` | pstack runs only ($pstack or Poteto mode): swarm workers, verification fan-out, and the second panel seat. Never for other work. | `openai-oauth/gpt-6.1-sol`, effort Auto, fast on |
 
-`pstack-judge` and `pstack-code` must stay on different model families, because every pstack panel seats one of each.
+`pstack-code` and `pstack-verify` must stay on different model families, because every pstack panel seats one of each.
