@@ -63,7 +63,7 @@ Each pstack role runs on one of five Mixdog agents, and the agent's Mixdog route
 | `how explorer`, `why investigators`, `reflect tooling` | `pstack-scout` |
 | `swarm workers`, and every verification the Subagents section sends to that role | `pstack-verify` |
 | `arena runners`, `architect runners`, `interrogate reviewers` | Two entries, `pstack-code` and `pstack-verify`. One subagent runs per entry. |
-| `arena cross-judge pool` | `pstack-judge`, then `pstack-code`. The first whose model family differs from the parent's judges. |
+| `arena cross-judge pool` | `pstack-judge` only. It judges even when its model family matches the parent's, so skip Arena's family check and its default-pool fallback. |
 
 | Cursor | Mixdog |
 | --- | --- |
