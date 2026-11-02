@@ -6,4 +6,4 @@ when_to_use: 'User selects $pstack-create-formal-verification-skill; never infer
 
 # pstack-create-formal-verification-skill
 
-This runs pstack's `create-formal-verification-skill` skill. Read [the pstack entry](../../upstream/docs/harness/mixdog-entry.md) in full and follow it, with `create-formal-verification-skill` as the named skill. Its Scope section applies.
+This runs pstack's `create-formal-verification-skill` skill for this task and its follow-ups. A new, unrelated request runs under pstack only when the user selects a pstack skill again. `<root>` is the folder two levels above this skill's folder. Read the `## Rules` section of `<root>/harness/WORKFLOW.md` and follow it for this task, then run the `create-formal-verification-skill` skill as those Rules say.

@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { describe, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPTS = dirname(fileURLToPath(import.meta.url));
-const REPOSITORY = "https://github.com/cursor/plugins";
-const LINE =
-  "In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. " +
-  "It maps the Cursor names in pstack skills to Mixdog.";
+const REAL_HARNESS = join(SCRIPTS, "..", "harness");
+const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const MANIFEST = {
   $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   name: "pstack",
@@ -18,42 +17,35 @@ const MANIFEST = {
   description: "pstack description",
   author: { name: "Lauren Tan" },
   homepage: "https://github.com/cursor/plugins/tree/main/pstack",
-  repository: REPOSITORY,
+  repository: "https://github.com/cursor/plugins",
   license: "MIT",
   keywords: ["pstack", "workflow"],
 };
-const skill = (name, body, heading = `# ${name}\n\n`) => `---\nname: ${name}\ndescription: The ${name} workflow.\n---\n\n${heading}${body}\n`;
-const UPSTREAM = {
-  "scripts/generate-pstack-harness-trees.mjs": `const TERMS = [
-  { key: "\`AskQuestion\`", re: /AskQuestion/ },
-  { key: "todolist", re: /\\btodo ?list\\b/i },
-];
-const ROUTE_KEY = "Run another pstack skill";
-`,
-  "pstack/plugin.json": `${JSON.stringify(MANIFEST, null, 2)}\n`,
-  "pstack/README.md": "# pstack\n\nRead [the guide](docs/guide/README.md). Schedules live in [automations](automations/).\n",
-  "pstack/LICENSE": "MIT License\n",
-  "pstack/agents/reviewer.md": "# reviewer\n",
-  "pstack/docs/guide/README.md": "# Guide\n\nBack to [pstack](../../README.md).\n",
-  "pstack/docs/harness/claude-code.md": "# Claude Code adapter\n",
-  "pstack/automations/nightly.md": "# nightly\n",
-  "pstack/skills/alpha/SKILL.md": skill(
+const skill = (name, body) => `---\nname: ${name}\ndescription: The ${name} workflow.\n---\n\n# ${name}\n\n${body}\n`;
+// upstream/ as a finished port leaves it.
+const SOURCE = {
+  "plugin.json": `${JSON.stringify(MANIFEST, null, 2)}\n`,
+  "README.md": "# pstack\n\nCursor's README stays as upstream wrote it.\n",
+  LICENSE: "MIT License\n",
+  "agents/reviewer.md": "# reviewer\n\nFollow [alpha](../skills/alpha/SKILL.md).\n",
+  "docs/guide/README.md": "# Guide\n\nThe guide keeps Cursor's names and [its links](missing.md).\n",
+  "skills/alpha/SKILL.md": skill(
     "alpha",
-    "Ask with `AskQuestion`. Set up [nightly](../../automations/nightly.md#setup) from [automations](../../automations).",
+    "Ask with `ask_user`. Compare [beta](../beta/SKILL.md#steps), read [the roles](../../../harness/PORTING.md#roles), and see [nightly](https://github.com/cursor/plugins/blob/0123456/pstack/automations/nightly.md).",
   ),
-  "pstack/skills/beta/SKILL.md": skill("beta", "Plain steps. Compare with [alpha](../alpha/SKILL.md)."),
-  "pstack/skills/gamma/SKILL.md": skill("gamma", "Then run the **beta** skill."),
-  "pstack/skills/delta/SKILL.md": skill("delta", "Install the tools with bun."),
+  "skills/beta/SKILL.md": skill(
+    "beta",
+    "Read Bugbot comments on cursor/plugins. Run create-verification-skill or make-create-skill-kit.",
+  ),
+  "skills/beta/scripts/README.md": "# run\n\nCursor runs this with `Task`.\n",
 };
 const HARNESS = {
-  "adapter.md": "# Mixdog adapter\n\n| Cursor | Mixdog |\n| --- | --- |\n| `AskQuestion` | ask |\n| Run another pstack skill | skill |\n| bun | npm |\n",
-  "ENTRY.md": `# pstack entry
-
-pstack {{PSTACK_VERSION}} at {{UPSTREAM_COMMIT}}. Skills: {{SKILL_NAMES}}.
-
-Read [the adapter](mixdog.md) and [alpha](../../skills/alpha/SKILL.md#steps).
-`,
-  "DIRECT-SKILL.md": readFileSync(join(SCRIPTS, "..", "harness", "DIRECT-SKILL.md"), "utf8"),
+  "WORKFLOW.md": "---\nid: poteto-mode\n---\n\nThe workflow.\n",
+  "agents.md": "# agents\n",
+  "INSTALL.md": "# install\n",
+  "PORTING.md": "# Porting\n\n## Roles\n",
+  "DIRECT-SKILL.md": readFileSync(join(REAL_HARNESS, "DIRECT-SKILL.md"), "utf8"),
+  "cursor-terms.json": readFileSync(join(REAL_HARNESS, "cursor-terms.json"), "utf8"),
   "direct-skills.json": "{}\n",
   "excluded-skills.json": "[]\n",
 };
@@ -73,11 +65,19 @@ function write(dir, files) {
   }
 }
 
-function commit(dir, files) {
-  write(dir, files);
-  git(dir, "add", "-A");
-  git(dir, "-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "update");
-  return git(dir, "rev-parse", "HEAD");
+// Every file under dir, as sorted slash paths.
+function list(dir) {
+  return readdirSync(dir, { recursive: true })
+    .filter((path) => statSync(join(dir, path)).isFile())
+    .map((path) => path.split(sep).join("/"))
+    .sort();
+}
+
+function stamp(harness) {
+  return createHash("sha256")
+    .update(harness["WORKFLOW.md"] + harness["agents.md"] + harness["INSTALL.md"])
+    .digest("hex")
+    .slice(0, 8);
 }
 
 // Reads one-line frontmatter values in any YAML quoting: plain, 'single' with '' escapes, or "double".
@@ -97,407 +97,547 @@ function run(script, args) {
   return spawnSync(process.execPath, [join(SCRIPTS, script), ...args], { encoding: "utf8" });
 }
 
-// A temp project with an upstream fixture repo at one commit, a lock pinning it, and a harness.
-function project(t, { upstream = {}, harness = {} } = {}) {
+// The problems a failed build printed, without their FAIL prefix.
+function fails(result) {
+  return result.stdout
+    .split("\n")
+    .filter((line) => line.startsWith("FAIL "))
+    .map((line) => line.slice("FAIL ".length));
+}
+
+// A temp plugin folder: upstream/, harness/, and a lock, with the generated files written beside them.
+function project(t, { upstream = SOURCE, harness = {}, lock = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), "pstack-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const dirs = { root, upstream: join(root, "upstream"), harness: join(root, "harness"), out: join(root, "out"), lock: join(root, "upstream.lock.json") };
-  mkdirSync(dirs.upstream);
-  git(dirs.upstream, "init", "-q", "-b", "main");
-  git(dirs.upstream, "config", "core.autocrlf", "false");
-  const pin = (sha) => {
-    const lock = { repository: REPOSITORY, ref: "main", commit: sha, syncedAt: new Date().toISOString() };
-    writeFileSync(dirs.lock, `${JSON.stringify(lock, null, 2)}\n`);
-    return sha;
-  };
+  const dirs = { root, upstream: join(root, "upstream"), harness: join(root, "harness"), lock: join(root, "upstream.lock.json") };
+  write(dirs.upstream, upstream);
   write(dirs.harness, { ...HARNESS, ...harness });
+  if (lock) writeFileSync(dirs.lock, `${JSON.stringify({ repository: MANIFEST.repository, ref: "main", commit: COMMIT, syncedAt: "2026-01-01T00:00:00.000Z" }, null, 2)}\n`);
   return {
     ...dirs,
-    sha: pin(commit(dirs.upstream, { ...UPSTREAM, ...upstream })),
-    pin,
-    build: (...args) => run("build.mjs", ["--upstream", dirs.upstream, "--lock", dirs.lock, "--harness", dirs.harness, "--out", dirs.out, ...args]),
-    read: (path) => readFileSync(join(dirs.out, path), "utf8"),
+    build: (...args) => run("build.mjs", ["--upstream", dirs.upstream, "--lock", dirs.lock, "--harness", dirs.harness, "--out", root, ...args]),
+    read: (path) => readFileSync(join(root, path), "utf8"),
   };
 }
 
 describe("build", () => {
-  test("renders the Mixdog plugin layout with placeholders filled", (t) => {
+  test("writes plugin.json with the upstream version, the pinned commit, and the harness stamp, and leaves upstream/ alone", (t) => {
     const p = project(t);
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /^4 skills, 3 SKILL\.md files with the Mixdog adapter line; .*: \d+ added, 0 changed, 0 deleted$/m);
+    assert.match(result.stdout, /^2 skills, 0 \$pstack-<name> skills; .*: 1 added, 0 changed, 0 deleted$/m);
 
     const { description, homepage, license, keywords } = MANIFEST;
-    const author = "Lauren Tan (ported to Mixdog by jisoq)";
-    const repository = "https://github.com/jisoq/pstack-mixdog";
-    const plugin = { name: "pstack", displayName: "pstack", version: `1.2.3+mixdog.${p.sha.slice(0, 7)}`, description, author, homepage, repository, license, keywords };
+    const plugin = {
+      name: "pstack",
+      displayName: "pstack",
+      version: `1.2.3+mixdog.0123456.${stamp(HARNESS)}`,
+      description,
+      author: "Lauren Tan (ported to Mixdog by jisoq)",
+      homepage,
+      repository: "https://github.com/jisoq/pstack-mixdog",
+      license,
+      keywords,
+    };
     assert.equal(p.read("plugin.json"), `${JSON.stringify(plugin, null, 2)}\n`);
-    assert.equal(
-      p.read("upstream/docs/harness/mixdog-entry.md"),
-      HARNESS["ENTRY.md"].replace(
-        "pstack {{PSTACK_VERSION}} at {{UPSTREAM_COMMIT}}. Skills: {{SKILL_NAMES}}.",
-        `pstack 1.2.3 at ${p.sha.slice(0, 12)}. Skills: \`alpha\`, \`beta\`, \`delta\`, \`gamma\`.`,
-      ),
-    );
-
-    assert.equal(p.read("upstream/docs/harness/mixdog.md"), HARNESS["adapter.md"]);
-    for (const path of ["README.md", "LICENSE", "plugin.json", "agents/reviewer.md", "docs/guide/README.md"]) {
-      assert.ok(existsSync(join(p.out, "upstream", path)), path);
-    }
-    for (const path of ["automations", "docs/harness/claude-code.md"]) assert.ok(!existsSync(join(p.out, "upstream", path)), path);
+    for (const [path, content] of Object.entries(SOURCE)) assert.equal(p.read(`upstream/${path}`), content, path);
+    assert.deepEqual(list(p.upstream), Object.keys(SOURCE).sort());
+    assert.equal(p.build("--check").status, 0);
   });
 
-  test("inserts the adapter line after the H1 only in skills that use Cursor names", (t) => {
+  test("a change to WORKFLOW.md, agents.md, or INSTALL.md changes the version stamp, and other harness files do not", (t) => {
     const p = project(t);
     assert.equal(p.build().status, 0);
-    for (const name of ["alpha", "gamma", "delta"]) {
-      assert.ok(p.read(`upstream/skills/${name}/SKILL.md`).includes(`\n# ${name}\n\n${LINE}\n\n`), name);
+    const harness = { ...HARNESS };
+    for (const name of ["WORKFLOW.md", "agents.md", "INSTALL.md"]) {
+      harness[name] += "Changed.\n";
+      write(p.harness, { [name]: harness[name] });
+      const drift = p.build("--check");
+      assert.equal(drift.status, 1, name);
+      assert.match(drift.stdout, /out of date in 1 paths/, name);
+      assert.equal(p.build().status, 0, name);
+      assert.equal(JSON.parse(p.read("plugin.json")).version, `1.2.3+mixdog.0123456.${stamp(harness)}`, name);
     }
-    assert.equal(p.read("upstream/skills/beta/SKILL.md"), UPSTREAM["pstack/skills/beta/SKILL.md"]);
+    write(p.harness, { "PORTING.md": "# Porting\n\n## Roles\n\nChanged.\n" });
+    assert.equal(p.build("--check").status, 0);
   });
 
-  test("rewrites links to left-out upstream files to the pinned commit", (t) => {
-    const p = project(t);
-    assert.equal(p.build().status, 0);
-    const alpha = p.read("upstream/skills/alpha/SKILL.md");
-    assert.ok(alpha.includes(`[nightly](${REPOSITORY}/blob/${p.sha}/pstack/automations/nightly.md#setup)`), alpha);
-    assert.ok(alpha.includes(`[automations](${REPOSITORY}/tree/${p.sha}/pstack/automations)`), alpha);
-    assert.ok(p.read("upstream/README.md").includes(`[automations](${REPOSITORY}/tree/${p.sha}/pstack/automations)`));
-    assert.ok(p.read("upstream/README.md").includes("[the guide](docs/guide/README.md)"));
-    assert.ok(p.read("upstream/skills/beta/SKILL.md").includes("[alpha](../alpha/SKILL.md)"));
-  });
-
-  test("fails on a missing adapter row, naming the key and the skill, and writes nothing", (t) => {
-    const p = project(t, { harness: { "adapter.md": HARNESS["adapter.md"].replace("| bun | npm |\n", "") } });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .*adapter\.md has no row for bun, used by delta$/m);
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("lists every skill problem at once", (t) => {
-    const p = project(t, {
-      upstream: {
-        "pstack/skills/alpha/SKILL.md": skill("alpha", "Ask with `AskQuestion`.", ""),
-        "pstack/skills/beta/SKILL.md": skill("beta", "Plain steps.").replace("name: beta", "name: Beta"),
-      },
-    });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL pstack\/skills\/alpha\/SKILL\.md uses Cursor names but has no H1$/m);
-    assert.match(result.stdout, /^FAIL pstack\/skills\/beta\/SKILL\.md has name "Beta", not its folder name beta$/m);
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("fails on a link that leaves upstream pstack/", (t) => {
-    const p = project(t, { upstream: { "pstack/skills/beta/SKILL.md": skill("beta", "See [the generator](../../../scripts/generate-pstack-harness-trees.mjs).") } });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL upstream\/skills\/beta\/SKILL\.md links to \.\.\/\.\.\/\.\.\/scripts\/generate-pstack-harness-trees\.mjs, which is not in the tree$/m);
-  });
-
-  test("fails on unfilled placeholders and unresolved links in harness/ENTRY.md", (t) => {
-    const p = project(t, { harness: { "ENTRY.md": "# pstack entry\n\n{{UNKNOWN_VALUE}} and [missing](../../skills/missing/SKILL.md).\n" } });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .*ENTRY\.md has unfilled placeholder \{\{UNKNOWN_VALUE\}\}$/m);
-    assert.match(result.stdout, /^FAIL .*ENTRY\.md links to \.\.\/\.\.\/skills\/missing\/SKILL\.md, which is not a rendered file$/m);
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("renders a pstack-<name> wrapper for each listed skill that sends the reader to the entry file", (t) => {
+  test("renders a $pstack-<name> skill for each listed skill that sends its reader to the workflow's rules, then the skill", (t) => {
     const description = `Run beta's "plain" steps: one line.`;
     const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: description }) } });
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta"]);
+    assert.deepEqual(readdirSync(join(p.root, "skills")), ["pstack-beta"]);
     const wrapper = p.read("skills/pstack-beta/SKILL.md");
     const fields = frontmatter(wrapper);
     assert.equal(fields.name, "pstack-beta");
     assert.equal(fields.description, description);
     assert.equal(fields.when_to_use, "User selects $pstack-beta; never inferred from the task.");
-    assert.ok(wrapper.includes("](../../upstream/docs/harness/mixdog-entry.md)"), wrapper);
-    assert.ok(wrapper.includes("with `beta` as the named skill"), wrapper);
+    const rules = wrapper.indexOf("Read the `## Rules` section of `<root>/harness/WORKFLOW.md`");
+    assert.ok(rules !== -1, wrapper);
+    assert.ok(wrapper.indexOf("run the `beta` skill as those Rules say") > rules, wrapper);
+    assert.match(readFileSync(join(REAL_HARNESS, "WORKFLOW.md"), "utf8"), /^## Rules$/m);
     assert.equal(p.build("--check").status, 0);
   });
 
-  test("fails on a listed skill missing upstream or a description over 100 characters or with < or >, naming the entry, and writes nothing", (t) => {
-    const list = { omega: "Run omega.", beta: "b".repeat(101), gamma: "g".repeat(100), delta: "Run <delta> steps." };
-    const p = project(t, { harness: { "direct-skills.json": JSON.stringify(list) } });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .*direct-skills\.json lists omega, which is not an upstream pstack skill$/m);
-    assert.match(result.stdout, /^FAIL .*direct-skills\.json has a 101-character description for beta, over 100$/m);
-    assert.match(result.stdout, /^FAIL .*direct-skills\.json has a description with < or > for delta, which Mixdog's skill validator rejects$/m);
-    assert.doesNotMatch(result.stdout, /gamma/);
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("removing a listed skill deletes its wrapper on the next build", (t) => {
-    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: "Run beta.", gamma: "Run gamma." }) } });
-    assert.equal(p.build().status, 0);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta", "pstack-gamma"]);
-
-    write(p.harness, { "direct-skills.json": JSON.stringify({ beta: "Run beta." }) });
-    const result = p.build();
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), ["pstack-beta"]);
-    assert.equal(p.build("--check").status, 0);
-  });
-
-  const script = { "pstack/skills/beta/scripts/run.ts": "one\ntwo\nthree\n" };
-  const patch = {
-    "patches/beta.patch": `diff --git a/pstack/skills/beta/scripts/run.ts b/pstack/skills/beta/scripts/run.ts
-index 0000000..1111111 100644
---- a/pstack/skills/beta/scripts/run.ts
-+++ b/pstack/skills/beta/scripts/run.ts
-@@ -1,3 +1,4 @@
- one
--two
-+TWO
-+2.5
- three
-`,
-  };
-
-  test("applies harness patches to the copied upstream files", (t) => {
-    const p = project(t, { upstream: script, harness: patch });
-    const result = p.build();
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.equal(p.read("upstream/skills/beta/scripts/run.ts"), "one\nTWO\n2.5\nthree\n");
-    assert.equal(p.read("upstream/skills/beta/SKILL.md"), UPSTREAM["pstack/skills/beta/SKILL.md"]);
-    assert.equal(p.build("--check").status, 0);
-  });
-
-  test("fails, naming the patch and the hunk, when the pinned upstream no longer matches a patch, and writes nothing", (t) => {
-    const p = project(t, { upstream: { "pstack/skills/beta/scripts/run.ts": "one\n2\nthree\n" }, harness: patch });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stdout,
-      /^FAIL .*patches[\\/]beta\.patch no longer applies to pstack\/skills\/beta\/scripts\/run\.ts: its hunk @@ -1,3 \+1,4 @@ matches 0 places in the pinned upstream\. Rebase the patch on it\.$/m,
-    );
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("fails, naming the hunk, when a patch hunk has no old lines, and writes nothing", (t) => {
-    const insertion = {
-      "patches/beta.patch": `diff --git a/pstack/skills/beta/scripts/run.ts b/pstack/skills/beta/scripts/run.ts
-index 0000000..1111111 100644
---- a/pstack/skills/beta/scripts/run.ts
-+++ b/pstack/skills/beta/scripts/run.ts
-@@ -0,0 +1 @@
-+one
-`,
-    };
-    const p = project(t, { upstream: { "pstack/skills/beta/scripts/run.ts": "" }, harness: insertion });
-    const result = p.build();
-    assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .*patches[\\/]beta\.patch hunk @@ -0,0 \+1 @@ has no old lines to anchor it in pstack\/skills\/beta\/scripts\/run\.ts\./m);
-    assert.ok(!existsSync(p.out));
-  });
-
-  test("leaves an excluded skill out of the tree and the entry list, links to it at the pinned commit, and fails on an unknown or wrapped name", (t) => {
+  test("fails on merge conflict markers in any text file under upstream/, and writes nothing", (t) => {
     const p = project(t, {
-      upstream: { "pstack/skills/delta/SKILL.md": skill("delta", "Install the tools with bun. Compare with [beta](../beta/SKILL.md).") },
-      harness: { "excluded-skills.json": JSON.stringify(["beta"]) },
+      upstream: {
+        ...SOURCE,
+        "docs/guide/README.md": "<<<<<<< ours (Mixdog port)\nA\n||||||| base\nB\n=======\nC\n>>>>>>> theirs\n",
+        "skills/beta/scripts/run.ts": "one\n=======\n",
+        "docs/guide/images/a.jpg": "\0\n=======\n",
+      },
     });
     const result = p.build();
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.ok(!existsSync(join(p.out, "upstream", "skills", "beta")));
-    assert.doesNotMatch(p.read("upstream/docs/harness/mixdog-entry.md"), /`beta`/);
-    assert.ok(p.read("upstream/skills/delta/SKILL.md").includes(`](${REPOSITORY}/blob/${p.sha}/pstack/skills/beta/SKILL.md)`));
-    assert.equal(p.build("--check").status, 0);
-
-    write(p.harness, { "excluded-skills.json": JSON.stringify(["beta", "omega"]), "direct-skills.json": JSON.stringify({ beta: "Run beta." }) });
-    const failed = p.build();
-    assert.equal(failed.status, 1);
-    assert.match(failed.stdout, /^FAIL .*excluded-skills\.json lists omega, which is not an upstream pstack skill$/m);
-    assert.match(failed.stdout, /^FAIL .*direct-skills\.json lists beta, which .*excluded-skills\.json excludes$/m);
+    assert.equal(result.status, 1);
+    assert.deepEqual(fails(result).sort(), [
+      "upstream/docs/guide/README.md has merge conflict markers, the first on line 1. Resolve them with harness/PORTING.md.",
+      "upstream/skills/beta/scripts/run.ts has merge conflict markers, the first on line 2. Resolve them with harness/PORTING.md.",
+    ]);
+    assert.ok(!existsSync(join(p.root, "plugin.json")));
   });
 
-  test("fails when the upstream generator changed shape", (t) => {
-    const p = project(t, { upstream: { "scripts/generate-pstack-harness-trees.mjs": "export const TERMS = loadTerms();\n" } });
+  test("fails on each Cursor-only term in skills and agents outside scripts/ folders, naming the file, line, and term", (t) => {
+    const body = ["Spawn it with `Task`.", "Ask with AskQuestion, then run /deslop.", "Use Cursor's create-skill.", "Pick claude-opus-4-8 in Fast mode."];
+    const p = project(t, {
+      upstream: { ...SOURCE, "skills/alpha/SKILL.md": skill("alpha", body.join("\n")), "agents/reviewer.md": "# reviewer\n\nRead ~/.cursor/plugins/pstack.\n" },
+    });
     const result = p.build();
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL upstream scripts\/generate-pstack-harness-trees\.mjs changed shape/m);
+    assert.deepEqual(fails(result).sort(), [
+      "upstream/agents/reviewer.md:3 has the Cursor-only term .cursor",
+      "upstream/skills/alpha/SKILL.md:10 has the Cursor-only term Cursor",
+      "upstream/skills/alpha/SKILL.md:10 has the Cursor-only term create-skill",
+      "upstream/skills/alpha/SKILL.md:11 has the Cursor-only term claude-<family>-<n>",
+      "upstream/skills/alpha/SKILL.md:11 has the Cursor-only term fast mode",
+      "upstream/skills/alpha/SKILL.md:8 has the Cursor-only term `Task`",
+      "upstream/skills/alpha/SKILL.md:9 has the Cursor-only term AskQuestion",
+      "upstream/skills/alpha/SKILL.md:9 has the Cursor-only term deslop",
+    ]);
+    assert.ok(!existsSync(join(p.root, "plugin.json")));
   });
 
-  test("fails when upstream HEAD differs from the lock", (t) => {
-    const p = project(t);
-    const head = commit(p.upstream, { "pstack/agents/reviewer.md": "# reviewer v2\n" });
+  test("fails on a .cursor path in a scripts file or a harness file the workflow reads, and passes their other cursor words", (t) => {
+    const code = ['const { endCursor } = data.pageInfo;', 'if (author === "cursor" && edge.cursor) start(CURSOR_AUTOMATION_ID);', '// Cursor spawns this with `Task`.'];
+    const p = project(t, {
+      upstream: {
+        ...SOURCE,
+        "skills/beta/scripts/audit.sh": 'ls "$HOME/.cursor/projects"\n',
+        "skills/beta/scripts/watch.ts": `${code.join("\n")}\n`,
+        "skills/beta/scripts/package.json": '{ "name": "@cursor-skill/tools" }\n',
+      },
+      harness: { "INSTALL.md": "# install\n\nCopy it to `~/.cursor`.\n" },
+    });
     const result = p.build();
     assert.equal(result.status, 1);
-    assert.match(result.stdout, new RegExp(`^FAIL .* is at ${head}, but .*upstream\\.lock\\.json pins ${p.sha}\\.`, "m"));
-    assert.ok(!existsSync(p.out));
+    assert.deepEqual(
+      fails(result).sort(),
+      [`${join(p.harness, "INSTALL.md")}:3 has the Cursor-only term .cursor`, "upstream/skills/beta/scripts/audit.sh:1 has the Cursor-only term .cursor"].sort(),
+    );
   });
 
-  test("fails when the upstream checkout has local changes", (t) => {
-    const p = project(t);
-    write(p.upstream, { "pstack/skills/beta/SKILL.md": skill("beta", "Edited.") });
+  test("fails on a relative link that resolves to no path in skills, agents, or the $pstack-<name> template", (t) => {
+    const p = project(t, {
+      upstream: {
+        ...SOURCE,
+        "skills/beta/SKILL.md": skill("beta", "See [gone](../gone/SKILL.md) and [outside](../../../../outside.md)."),
+        "agents/reviewer.md": "# reviewer\n\n[missing](missing.md)\n",
+      },
+      harness: {
+        "direct-skills.json": JSON.stringify({ alpha: "Run alpha." }),
+        "DIRECT-SKILL.md": "---\nname: pstack-{{NAME}}\n---\n\n[skill](../../upstream/skills/{{NAME}}/SKILL.md), [plugin](../../plugin.json), [entry](../../upstream/docs/harness/mixdog-entry.md)\n",
+      },
+    });
     const result = p.build();
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /^FAIL .* has local changes: +M pstack\/skills\/beta\/SKILL\.md$/m);
+    assert.deepEqual(
+      fails(result).sort(),
+      [
+        "upstream/agents/reviewer.md links to missing.md, which does not exist",
+        "upstream/skills/beta/SKILL.md links to ../gone/SKILL.md, which does not exist",
+        "upstream/skills/beta/SKILL.md links to ../../../../outside.md, which does not exist",
+        `${join(p.harness, "DIRECT-SKILL.md")} links to ../../upstream/docs/harness/mixdog-entry.md, which does not exist`,
+      ].sort(),
+    );
   });
 
-  test("--check detects drift, writes nothing, and passes after a build", (t) => {
-    const p = project(t);
+  test("checks titled inline links and reference link definitions, and skips footnotes", (t) => {
+    const body = [
+      'See [alpha](../alpha/SKILL.md "Alpha") and [gone](../gone/SKILL.md "Gone").',
+      "Compare [alpha][a] and [lost][l].[^1]",
+      "",
+      "[a]: ../alpha/SKILL.md",
+      "[l]: <../lost/SKILL.md> 'Lost'",
+      "[^1]: A footnote, not a link.",
+    ];
+    const p = project(t, { upstream: { ...SOURCE, "skills/beta/SKILL.md": skill("beta", body.join("\n")) } });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.deepEqual(fails(result).sort(), [
+      "upstream/skills/beta/SKILL.md links to ../gone/SKILL.md, which does not exist",
+      "upstream/skills/beta/SKILL.md links to ../lost/SKILL.md, which does not exist",
+    ]);
+  });
+
+  test("fails on anything left in an excluded skill's folder, even without a SKILL.md", (t) => {
+    const p = project(t, { upstream: { ...SOURCE, "skills/omega/README.md": "# omega\n" }, harness: { "excluded-skills.json": JSON.stringify(["omega"]) } });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    assert.deepEqual(fails(result), [`upstream/skills/omega is excluded by ${join(p.harness, "excluded-skills.json")}. Delete it.`]);
+    assert.ok(!existsSync(join(p.root, "plugin.json")));
+  });
+
+  test("lists every skill, list, and template problem at once, and writes nothing", (t) => {
+    const p = project(t, {
+      upstream: {
+        ...SOURCE,
+        "skills/beta/SKILL.md": skill("beta", "Plain steps.").replace("name: beta", "name: Beta"),
+        "skills/Bad_Name/SKILL.md": skill("Bad_Name", "Plain steps."),
+        "skills/gamma/SKILL.md": skill("gamma", "Plain steps."),
+      },
+      harness: {
+        "excluded-skills.json": JSON.stringify(["gamma"]),
+        "direct-skills.json": JSON.stringify({ omega: "Run omega.", gamma: "Run gamma.", alpha: "a".repeat(101), beta: "Run <beta> steps." }),
+        "DIRECT-SKILL.md": "---\nname: pstack-{{NAME}}\n---\n\n{{UNKNOWN}}\n",
+      },
+    });
+    const result = p.build();
+    assert.equal(result.status, 1);
+    const [direct, excluded, template] = ["direct-skills.json", "excluded-skills.json", "DIRECT-SKILL.md"].map((name) => join(p.harness, name));
+    assert.deepEqual(fails(result), [
+      "upstream/skills/Bad_Name is not lowercase words joined by hyphens, at most 64 characters",
+      'upstream/skills/beta/SKILL.md has name "Beta", not its folder name beta',
+      `upstream/skills/gamma is excluded by ${excluded}. Delete it.`,
+      `${direct} lists omega, which is not a pstack skill in upstream/skills`,
+      `${direct} lists gamma, which ${excluded} excludes`,
+      `${direct} has a 101-character description for alpha, over 100`,
+      `${direct} has a description with < or > for beta, which Mixdog's skill validator rejects`,
+      `${template} has unfilled placeholder {{UNKNOWN}}`,
+    ]);
+    assert.ok(!existsSync(join(p.root, "plugin.json")));
+    assert.ok(!existsSync(join(p.root, "skills")));
+  });
+
+  test("--check reports drift only in plugin.json and skills/, and a build reconciles them in place", (t) => {
+    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ alpha: "Run alpha.", beta: "Run beta." }) } });
     const before = p.build("--check");
     assert.equal(before.status, 1);
-    assert.match(before.stdout, /\/upstream\/docs\/harness\/mixdog-entry\.md$/m);
-    assert.ok(!existsSync(p.out));
+    assert.match(before.stdout, /\/plugin\.json$/m);
+    assert.match(before.stdout, /out of date in 3 paths/);
+    assert.ok(!existsSync(join(p.root, "plugin.json")));
 
     assert.equal(p.build().status, 0);
-    const clean = p.build("--check");
-    assert.equal(clean.status, 0, clean.stdout);
-    assert.match(clean.stdout, /is up to date\.$/m);
+    assert.match(p.build("--check").stdout, /is up to date\.$/m);
 
-    write(p.out, { "plugin.json": "edited\n", "upstream/extra.md": "extra\n" });
-    const drift = p.build("--check");
-    assert.equal(drift.status, 1);
-    assert.match(drift.stdout, /\/plugin\.json$/m);
-    assert.match(drift.stdout, /\/upstream\/extra\.md$/m);
-    assert.match(drift.stdout, /out of date in 2 paths/);
-    assert.equal(p.read("plugin.json"), "edited\n");
-  });
-
-  test("a rebuild deletes stale files, keeps unchanged files and the output dir", (t) => {
-    const p = project(t);
-    assert.equal(p.build().status, 0);
-    const outId = statSync(p.out, { bigint: true }).ino;
-    const unchanged = join(p.out, "upstream/skills/beta/SKILL.md");
-    utimesSync(unchanged, new Date(2000, 0, 1), new Date(2000, 0, 1));
-    write(p.out, { "upstream/stray/old.md": "stale\n" });
-    p.pin(commit(p.upstream, { "pstack/skills/delta/SKILL.md": null }));
-
-    const result = p.build();
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    // Changed: plugin.json and the entry file, plus upstream alpha and README.md, whose links pin the commit.
-    assert.match(result.stdout, /^3 skills, 2 SKILL\.md files .*: 0 added, 4 changed, 2 deleted$/m);
-    assert.ok(!existsSync(join(p.out, "upstream/skills/delta")));
-    assert.ok(!existsSync(join(p.out, "upstream/stray")));
-    assert.equal(statSync(p.out, { bigint: true }).ino, outId);
-    assert.equal(statSync(unchanged).mtime.getFullYear(), 2000);
-    assert.match(p.read("upstream/docs/harness/mixdog-entry.md"), /Skills: `alpha`, `beta`, `gamma`\./);
-    assert.equal(p.build("--check").status, 0);
-  });
-
-  test("leaves files outside the owned paths untouched and out of drift, but deletes stale owned files", (t) => {
-    const p = project(t);
     const unrelated = {
       "README.md": "# pstack-mixdog\n",
       "scripts/build.mjs": "// hand-written\n",
-      "harness/adapter.md": "# adapter\n",
-      "upstream.lock.json": "{}\n",
-      ".gitignore": ".cache/\n",
-      ".git/HEAD": "ref: refs/heads/main\n",
+      "upstream/extra.md": "# extra\n",
       ".cache/cursor-plugins/x.md": "cache\n",
-      "node_modules/x/index.js": "dep\n",
-      ".DS_Store": "finder\n",
     };
-    write(p.out, unrelated);
-    mkdirSync(join(p.out, "empty"));
-    for (const path of Object.keys(unrelated)) utimesSync(join(p.out, path), new Date(2000, 0, 1), new Date(2000, 0, 1));
-    const untouched = () => {
-      for (const [path, content] of Object.entries(unrelated)) {
-        assert.equal(p.read(path), content, path);
-        assert.equal(statSync(join(p.out, path)).mtime.getFullYear(), 2000, path);
-      }
-      assert.ok(existsSync(join(p.out, "empty")));
-    };
-
-    assert.equal(p.build().status, 0);
-    untouched();
-    const clean = p.build("--check");
-    assert.equal(clean.status, 0, clean.stdout);
-
-    write(p.out, { "skills/old/SKILL.md": "stale\n" });
+    write(p.root, { ...unrelated, "plugin.json": "edited\n", "skills/old/SKILL.md": "stale\n" });
+    const old = new Date(2000, 0, 1);
+    for (const path of [...Object.keys(unrelated), "skills/pstack-alpha/SKILL.md"]) utimesSync(join(p.root, path), old, old);
+    const rootId = statSync(p.root, { bigint: true }).ino;
     const drift = p.build("--check");
     assert.equal(drift.status, 1);
+    assert.match(drift.stdout, /\/plugin\.json$/m);
     assert.match(drift.stdout, /\/skills\/old\/SKILL\.md$/m);
-    assert.match(drift.stdout, /out of date in 1 paths/);
+    assert.match(drift.stdout, /out of date in 2 paths/);
+    assert.equal(p.read("plugin.json"), "edited\n");
 
+    write(p.harness, { "direct-skills.json": JSON.stringify({ alpha: "Run alpha." }) });
     const rebuild = p.build();
-    assert.match(rebuild.stdout, /: 0 added, 0 changed, 1 deleted$/m);
-    assert.deepEqual(readdirSync(join(p.out, "skills")), []);
-    untouched();
-  });
-
-  test("runtime-installed node_modules survive and are not drift, while a stray .DS_Store is deleted", (t) => {
-    const p = project(t);
-    assert.equal(p.build().status, 0);
-    write(p.out, { "upstream/skills/beta/node_modules/x/index.js": "installed\n", "upstream/.DS_Store": "stale\n" });
-
-    const drift = p.build("--check");
-    assert.equal(drift.status, 1, drift.stdout);
-    assert.match(drift.stdout, /out of date in 1 paths/);
-
-    assert.equal(p.build().status, 0);
-    assert.equal(readFileSync(join(p.out, "upstream/skills/beta/node_modules/x/index.js"), "utf8"), "installed\n");
-    assert.ok(!existsSync(join(p.out, "upstream/.DS_Store")));
+    assert.equal(rebuild.status, 0, rebuild.stdout + rebuild.stderr);
+    assert.match(rebuild.stdout, /: 0 added, 1 changed, 2 deleted$/m);
+    assert.deepEqual(readdirSync(join(p.root, "skills")), ["pstack-alpha"]);
+    assert.equal(statSync(join(p.root, "skills/pstack-alpha/SKILL.md")).mtime.getFullYear(), 2000);
+    assert.equal(statSync(p.root, { bigint: true }).ino, rootId);
+    for (const [path, content] of Object.entries(unrelated)) {
+      assert.equal(p.read(path), content, path);
+      assert.equal(statSync(join(p.root, path)).mtime.getFullYear(), 2000, path);
+    }
     assert.equal(p.build("--check").status, 0);
   });
 });
 
+// A cursor/plugins stand-in. Its server settings make the sync cache a real blob:none clone, as GitHub does.
+const REMOTE = {
+  "scripts/generate-pstack-harness-trees.mjs": 'const TERMS = [\n  { key: "AskQuestion", re: /AskQuestion/ },\n];\nconst ROUTE_KEY = "x";\n',
+  "pstack/plugin.json": `${JSON.stringify(MANIFEST, null, 2)}\n`,
+  "pstack/README.md": "# pstack\n\nRead [the guide](docs/guide/README.md). Schedules live in [automations](automations/).\n",
+  "pstack/LICENSE": "MIT License\n",
+  "pstack/agents/reviewer.md": "# reviewer\n",
+  "pstack/docs/guide/README.md": "# Guide\n\nBack to [pstack](../../README.md).\n",
+  "pstack/docs/harness/claude-code.md": "# Claude Code adapter\n",
+  "pstack/automations/nightly.md": "# nightly\n",
+  "pstack/skills/alpha/SKILL.md": skill(
+    "alpha",
+    "Set up [nightly](../../automations/nightly.md#setup) from [automations](../../automations). Compare [beta](../beta/SKILL.md) and [omega](../omega/SKILL.md).",
+  ),
+  "pstack/skills/beta/SKILL.md": skill("beta", "Step one.\nStep two.\nStep three.\nStep four.\nStep five."),
+  "pstack/skills/gamma/SKILL.md": skill("gamma", "Plain steps."),
+  "pstack/skills/omega/SKILL.md": skill("omega", "Excluded."),
+};
+
+function commit(dir, files, executable = []) {
+  write(dir, files);
+  git(dir, "add", "-A");
+  for (const path of executable) git(dir, "update-index", "--chmod=+x", path);
+  git(dir, "-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "update");
+  return git(dir, "rev-parse", "HEAD");
+}
+
+function synced(t, { harness = {} } = {}) {
+  const p = project(t, { upstream: {}, harness: { "excluded-skills.json": JSON.stringify(["omega"]), ...harness }, lock: false });
+  const remote = join(p.root, "remote");
+  const cache = join(p.root, "cache");
+  mkdirSync(remote);
+  git(remote, "init", "-q", "-b", "main");
+  for (const [key, value] of [["core.autocrlf", "false"], ["uploadpack.allowFilter", "true"], ["uploadpack.allowAnySHA1InWant", "true"]]) git(remote, "config", key, value);
+  const repo = pathToFileURL(remote).href;
+  return {
+    ...p,
+    remote,
+    cache,
+    repo,
+    first: commit(remote, REMOTE),
+    sync: (...args) =>
+      run("sync.mjs", ["--repo", repo, "--cache", cache, "--lock", p.lock, "--upstream", p.upstream, "--harness", p.harness, "--out", p.root, ...args]),
+    locked: () => JSON.parse(readFileSync(p.lock, "utf8")).commit,
+  };
+}
+
 describe("sync", () => {
-  test("pins the fetched commit, rebuilds, and stops for review on Claude Code mapping changes until --reviewed", (t) => {
-    const p = project(t);
-    const cache = join(p.root, "cache");
-    const lock = join(p.root, "synced.lock.json");
-    const repo = pathToFileURL(p.upstream).href;
-    const sync = (...args) => run("sync.mjs", ["--repo", repo, "--cache", cache, "--lock", lock, "--harness", p.harness, "--out", p.out, ...args]);
-    const generated = () =>
-      Object.fromEntries(readdirSync(p.out, { recursive: true }).filter((path) => statSync(join(p.out, path)).isFile()).map((path) => [path, p.read(path)]));
-    const locked = () => JSON.parse(readFileSync(lock, "utf8")).commit;
-
-    const first = sync();
+  test("first imports the rendered upstream tree, links left-out files to the pinned commit, pins it, and builds", (t) => {
+    const s = synced(t);
+    const first = s.sync();
     assert.equal(first.status, 0, first.stdout + first.stderr);
-    assert.match(first.stdout, /No previous lock/);
-    assert.deepEqual(
-      (({ syncedAt, ...rest }) => rest)(JSON.parse(readFileSync(lock, "utf8"))),
-      { repository: repo, ref: "main", commit: p.sha },
+    assert.match(first.stdout, /^No previous lock\. Importing main at /m);
+    const { syncedAt, ...lock } = JSON.parse(readFileSync(s.lock, "utf8"));
+    assert.deepEqual(lock, { repository: s.repo, ref: "main", commit: s.first });
+    assert.equal(git(s.cache, "config", "remote.origin.promisor"), "true");
+    assert.equal(git(s.cache, "config", "core.autocrlf"), "false");
+    assert.equal(git(s.cache, "config", "core.eol"), "lf");
+
+    assert.deepEqual(list(s.upstream), [
+      "LICENSE",
+      "README.md",
+      "agents/reviewer.md",
+      "docs/guide/README.md",
+      "plugin.json",
+      "skills/alpha/SKILL.md",
+      "skills/beta/SKILL.md",
+      "skills/gamma/SKILL.md",
+    ]);
+    const blob = `${s.repo}/blob/${s.first}/pstack`;
+    assert.equal(
+      s.read("upstream/skills/alpha/SKILL.md"),
+      skill(
+        "alpha",
+        `Set up [nightly](${blob}/automations/nightly.md#setup) from [automations](${s.repo}/tree/${s.first}/pstack/automations). Compare [beta](../beta/SKILL.md) and [omega](${blob}/skills/omega/SKILL.md).`,
+      ),
     );
-    assert.equal(git(cache, "config", "core.autocrlf"), "false");
-    assert.equal(git(cache, "config", "core.eol"), "lf");
-    assert.ok(!p.read("upstream/skills/alpha/SKILL.md").includes("\r"));
-    assert.ok(p.read("upstream/skills/alpha/SKILL.md").includes(`${repo}/blob/${p.sha}/pstack/automations/nightly.md`));
+    assert.equal(s.read("upstream/README.md"), `# pstack\n\nRead [the guide](docs/guide/README.md). Schedules live in [automations](${s.repo}/tree/${s.first}/pstack/automations).\n`);
+    assert.equal(s.read("upstream/skills/beta/SKILL.md"), REMOTE["pstack/skills/beta/SKILL.md"]);
+    assert.equal(JSON.parse(s.read("plugin.json")).version, `1.2.3+mixdog.${s.first.slice(0, 7)}.${stamp(HARNESS)}`);
 
-    assert.match(sync().stdout, /Already current: main is still/);
+    const rerun = s.sync();
+    assert.equal(rerun.status, 0, rerun.stdout + rerun.stderr);
+    assert.match(rerun.stdout, new RegExp(`^Already current: main is still ${s.first}\\.$`, "m"));
+  });
 
-    const plain = commit(p.upstream, { "pstack/agents/reviewer.md": "# reviewer v2\n" });
-    const moved = sync();
+  test("--check reports whether upstream moved past the pin, without merging, pinning, or building", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    const current = s.sync("--check");
+    assert.equal(current.status, 0, current.stdout + current.stderr);
+    assert.match(current.stdout, new RegExp(`^Already current: main is still ${s.first}\\.$`, "m"));
+
+    const kept = ["upstream/skills/beta/SKILL.md", "upstream.lock.json", "plugin.json"].map((path) => [path, readFileSync(join(s.root, path), "utf8")]);
+    const next = commit(s.remote, { "pstack/skills/beta/SKILL.md": REMOTE["pstack/skills/beta/SKILL.md"].replace("Step five.", "Step five, updated.") });
+    const moved = s.sync("--check");
     assert.equal(moved.status, 0, moved.stdout + moved.stderr);
-    assert.match(moved.stdout, new RegExp(`moved from ${p.sha} to ${plain}`));
-    assert.match(moved.stdout, /pstack\/agents\/reviewer\.md \| 2 \+-/);
-    assert.doesNotMatch(moved.stdout, /REVIEW/);
-    assert.equal(p.read("upstream/agents/reviewer.md"), "# reviewer v2\n");
+    assert.match(moved.stdout, new RegExp(`^Upstream main moved from ${s.first} to ${next}\\.$`, "m"));
+    assert.match(moved.stdout, /^Nothing was merged\. Run `node scripts\/sync\.mjs` to merge it\.$/m);
+    for (const [path, text] of kept) assert.equal(readFileSync(join(s.root, path), "utf8"), text, path);
+  });
 
-    const mapped = commit(p.upstream, {
-      "pstack/docs/harness/claude-code.md": "# Claude Code adapter\n\n| new row |\n",
-      "pstack/agents/reviewer.md": "# reviewer v3\n",
+  test("merges an upstream change into a locally ported file, writes additions, and deletes files and folders upstream removed", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    const ported = (text) => text.replace("Step one.", "Step one, ported.");
+    write(s.upstream, { "skills/beta/SKILL.md": ported(s.read("upstream/skills/beta/SKILL.md")) });
+    const next = commit(s.remote, {
+      "pstack/skills/beta/SKILL.md": REMOTE["pstack/skills/beta/SKILL.md"].replace("Step five.", "Step five, updated."),
+      "pstack/agents/new.md": "# new\n",
+      "pstack/agents/reviewer.md": null,
+      "pstack/skills/gamma/SKILL.md": null,
     });
-    const built = generated();
-    const review = sync();
-    assert.equal(review.status, 2, review.stdout + review.stderr);
-    assert.equal(locked(), plain);
-    assert.deepEqual(generated(), built);
-    assert.match(review.stdout, /pstack\/docs\/harness\/claude-code\.md \| 2 \+\+/);
-    assert.match(review.stdout, /={5,} REVIEW ={5,}/);
-    assert.match(review.stdout, /^\+\| new row \|$/m);
-    assert.match(review.stdout, /then run `node scripts\/sync\.mjs --reviewed`\.\n$/);
 
-    const rerun = sync();
-    assert.equal(rerun.status, 2, rerun.stdout + rerun.stderr);
-    assert.match(rerun.stdout, /^\+\| new row \|$/m);
-    assert.equal(locked(), plain);
-    assert.deepEqual(generated(), built);
+    const result = s.sync();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, new RegExp(`^Upstream main moved from ${s.first} to ${next}\\.$`, "m"));
+    assert.match(result.stdout, /pstack\/agents\/new\.md +\| 1 \+/);
+    // README.md and alpha change too, because their links to left-out files now pin the new commit.
+    assert.match(result.stdout, /^Merged into upstream\/: 4 written, 2 deleted, 0 conflicted\.$/m);
+    assert.ok(s.read("upstream/README.md").includes(`(${s.repo}/tree/${next}/pstack/automations)`));
+    assert.equal(s.read("upstream/skills/beta/SKILL.md"), ported(REMOTE["pstack/skills/beta/SKILL.md"]).replace("Step five.", "Step five, updated."));
+    assert.equal(s.read("upstream/agents/new.md"), "# new\n");
+    assert.ok(!existsSync(join(s.upstream, "agents/reviewer.md")));
+    assert.ok(!existsSync(join(s.upstream, "skills/gamma")));
+    assert.equal(s.locked(), next);
+  });
 
-    const reviewed = sync("--reviewed");
-    assert.equal(reviewed.status, 0, reviewed.stdout + reviewed.stderr);
-    assert.match(reviewed.stdout, new RegExp(`moved from ${plain} to ${mapped}`));
-    assert.match(reviewed.stdout, /pstack\/docs\/harness\/claude-code\.md \| 2 \+\+/);
-    assert.match(reviewed.stdout, /^\+\| new row \|$/m);
-    assert.equal(locked(), mapped);
-    assert.equal(p.read("upstream/agents/reviewer.md"), "# reviewer v3\n");
+  test("a conflict leaves markers, exits 2, and fails the build until a person resolves it", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    const built = s.read("plugin.json");
+    write(s.upstream, {
+      "skills/beta/SKILL.md": s.read("upstream/skills/beta/SKILL.md").replace("Step three.", "Step three, ported."),
+      "agents/reviewer.md": "# reviewer, ported\n",
+      LICENSE: null,
+    });
+    const next = commit(s.remote, {
+      "pstack/skills/beta/SKILL.md": REMOTE["pstack/skills/beta/SKILL.md"].replace("Step three.", "Step three, updated."),
+      "pstack/agents/reviewer.md": null,
+      "pstack/LICENSE": "MIT License, updated\n",
+    });
+
+    const result = s.sync();
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+    assert.match(result.stdout, /^FAIL upstream\/skills\/beta\/SKILL\.md has merge conflict markers, the first on line 10\. /m);
+    const conflicts = result.stdout.split("\n").filter((line) => line.startsWith("CONFLICT "));
+    assert.deepEqual(conflicts, [
+      "CONFLICT upstream/LICENSE: upstream changed it, and it was deleted here",
+      "CONFLICT upstream/agents/reviewer.md: upstream deleted it, and it differs from upstream's last version here",
+      "CONFLICT upstream/skills/beta/SKILL.md: 1 conflicting hunks, marked in the file",
+    ]);
+    assert.match(result.stdout, /^3 paths conflicted\. Resolve each with harness\/PORTING\.md/m);
+    const merged = s.read("upstream/skills/beta/SKILL.md");
+    assert.ok(
+      merged.includes(
+        `<<<<<<< ours (Mixdog port)\nStep three, ported.\n||||||| base (pstack ${s.first.slice(0, 7)})\nStep three.\n=======\nStep three, updated.\n>>>>>>> theirs (pstack ${next.slice(0, 7)})\n`,
+      ),
+      merged,
+    );
+    assert.equal(s.read("upstream/agents/reviewer.md"), "# reviewer, ported\n");
+    assert.ok(!existsSync(join(s.upstream, "LICENSE")));
+    assert.equal(s.locked(), next);
+    assert.equal(s.read("plugin.json"), built);
+
+    const rerun = s.sync();
+    assert.equal(rerun.status, 1, rerun.stdout + rerun.stderr);
+    assert.match(rerun.stdout, /^Already current: /m);
+    assert.match(rerun.stdout, /^FAIL upstream\/skills\/beta\/SKILL\.md has merge conflict markers/m);
+
+    write(s.upstream, { "skills/beta/SKILL.md": merged.replace(/<<<<<<< [\s\S]*>>>>>>> .*\n/, "Step three, ported and updated.\n") });
+    const resolved = s.build();
+    assert.equal(resolved.status, 0, resolved.stdout + resolved.stderr);
+    assert.equal(JSON.parse(s.read("plugin.json")).version, `1.2.3+mixdog.${next.slice(0, 7)}.${stamp(HARNESS)}`);
+  });
+
+  test("never imports an excluded skill, and fails before writing when upstream lacks an excluded name", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    assert.ok(!existsSync(join(s.upstream, "skills/omega")));
+    const before = list(s.upstream);
+    write(s.harness, { "excluded-skills.json": JSON.stringify(["omega", "zeta"]) });
+    commit(s.remote, { "pstack/agents/reviewer.md": "# reviewer v2\n" });
+
+    const result = s.sync();
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, new RegExp(`^FAIL .*excluded-skills\\.json lists zeta, which pstack/skills does not have at [0-9a-f]{40}\\.$`, "m"));
+    assert.equal(s.locked(), s.first);
+    assert.deepEqual(list(s.upstream), before);
+    assert.equal(s.read("upstream/agents/reviewer.md"), "# reviewer\n");
+  });
+
+  test("an upstream executable bit follows upstream, and sync names each change for Windows", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    const script = "pstack/skills/beta/scripts/run.sh";
+    commit(s.remote, { [script]: "#!/bin/sh\necho run\n" }, [script]);
+    const added = s.sync();
+    assert.equal(added.status, 0, added.stdout + added.stderr);
+    assert.match(added.stdout, /^\+x upstream\/skills\/beta\/scripts\/run\.sh$/m);
+    assert.equal(s.read("upstream/skills/beta/scripts/run.sh"), "#!/bin/sh\necho run\n");
+    if (process.platform !== "win32") assert.notEqual(statSync(join(s.upstream, "skills/beta/scripts/run.sh")).mode & 0o111, 0);
+
+    git(s.remote, "update-index", "--chmod=-x", script);
+    git(s.remote, "-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "not executable");
+    const removed = s.sync();
+    assert.equal(removed.status, 0, removed.stdout + removed.stderr);
+    assert.match(removed.stdout, /^-x upstream\/skills\/beta\/scripts\/run\.sh$/m);
+    if (process.platform !== "win32") assert.equal(statSync(join(s.upstream, "skills/beta/scripts/run.sh")).mode & 0o111, 0);
+  });
+
+  test("prints upstream's TERMS change as a notice without blocking, and stays quiet on other generator changes", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    const generator = "scripts/generate-pstack-harness-trees.mjs";
+    const terms = REMOTE[generator].replace("];", '  { key: "Worktrees", re: /worktrees/ },\n];');
+    commit(s.remote, { [generator]: terms });
+    const changed = s.sync();
+    assert.equal(changed.status, 0, changed.stdout + changed.stderr);
+    assert.match(changed.stdout, /^Check whether harness\/cursor-terms\.json needs the same change\.$/m);
+    assert.match(changed.stdout, /^\+  \{ key: "Worktrees", re: \/worktrees\/ \},$/m);
+
+    commit(s.remote, { [generator]: `${terms}// trailing\n` });
+    const other = s.sync();
+    assert.equal(other.status, 0, other.stdout + other.stderr);
+    assert.doesNotMatch(other.stdout, /cursor-terms\.json/);
+  });
+
+  test("an upstream addition keeps a different local file at its path as an add/add conflict, also on a first import", (t) => {
+    const s = synced(t);
+    const conflicts = (result) => result.stdout.split("\n").filter((line) => line.startsWith("CONFLICT "));
+    write(s.upstream, { LICENSE: REMOTE["pstack/LICENSE"], "agents/reviewer.md": "# reviewer, ported\n" });
+    const first = s.sync();
+    assert.equal(first.status, 2, first.stdout + first.stderr);
+    assert.match(first.stdout, /^Merged into upstream\/: 7 written, 0 deleted, 1 conflicted\.$/m);
+    assert.deepEqual(conflicts(first), ["CONFLICT upstream/agents/reviewer.md: upstream added it, and a different file exists here"]);
+    assert.equal(s.read("upstream/agents/reviewer.md"), "# reviewer, ported\n");
+
+    write(s.upstream, { "agents/new.md": "# new, ported\n" });
+    commit(s.remote, { "pstack/agents/new.md": "# new\n" });
+    const added = s.sync();
+    assert.equal(added.status, 2, added.stdout + added.stderr);
+    assert.deepEqual(conflicts(added), ["CONFLICT upstream/agents/new.md: upstream added it, and a different file exists here"]);
+    assert.equal(s.read("upstream/agents/new.md"), "# new, ported\n");
+  });
+
+  test("an upstream change to only the executable bit of a file deleted here is a conflict", (t) => {
+    const s = synced(t);
+    assert.equal(s.sync().status, 0);
+    write(s.upstream, { "agents/reviewer.md": null });
+    commit(s.remote, {}, ["pstack/agents/reviewer.md"]);
+    const result = s.sync();
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+    assert.deepEqual(
+      result.stdout.split("\n").filter((line) => line.startsWith("CONFLICT ")),
+      ["CONFLICT upstream/agents/reviewer.md: upstream changed it, and it was deleted here"],
+    );
+    assert.ok(!existsSync(join(s.upstream, "agents/reviewer.md")));
+  });
+
+  test("fetches the previously pinned commit when the cache lacks it", (t) => {
+    const s = synced(t);
+    git(s.remote, "checkout", "-q", "-b", "side");
+    const side = commit(s.remote, { "pstack/agents/reviewer.md": "# reviewer on side\n" });
+    assert.equal(s.sync("--ref", "side").status, 0);
+    // A fresh clone of a remote whose side branch is gone has no copy of the pinned commit.
+    git(s.remote, "checkout", "-q", "main");
+    git(s.remote, "branch", "-q", "-D", "side");
+    const next = commit(s.remote, { "pstack/LICENSE": "MIT License, updated\n" });
+    rmSync(s.cache, { recursive: true, force: true });
+
+    const result = s.sync();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, new RegExp(`^Upstream main moved from ${side} to ${next}\\.$`, "m"));
+    assert.equal(s.read("upstream/agents/reviewer.md"), "# reviewer\n");
+    assert.equal(s.read("upstream/LICENSE"), "MIT License, updated\n");
+    assert.ok(s.read("upstream/README.md").includes(`(${s.repo}/tree/${next}/pstack/automations)`));
   });
 });

@@ -1,6 +1,6 @@
 ### Feature
 
-**You own the design. Plan, review, verify.** Delegate implementation. Stay in the lead.
+**You own the design. Plan, review, verify.**
 
 1. `how` over the affected subsystem.
 2. `architect` for parallel design exploration.
@@ -9,13 +9,13 @@
    - **Independent workstreams.** Disjoint files, services, or layers parallelize. Shared writes serialize.
    - **Shared mutable state.** Default to splitting the target (the **separate-before-serializing-shared-state** principle skill). Serialize only for real invariants.
    - **Smallest safe decomposition.** If one worker is best, name why.
-4. Delegate code-writing to a subagent using your configured feature model (default `grok-4.7-xhigh-fast`) with a specific scope (file paths, named data shape and its organizing structure per **principle-model-the-domain**, a state machine over scattered booleans, a table/registry over branching, a typed model over repeated shape assumptions, chosen before the delegate writes logic, and success criteria). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section. When the implementation admits multiple valid shapes (error handling, abstraction layer, test structure), delegate via the **arena** skill instead so the runners surface the alternatives and the cross-judge guards the pick. Mandatory: no skip-with-reason escape, and Laziness Protocol does not override it (the gain is review separation, not lines saved). A subagent forbidden to spawn satisfies this by owning the diff directly with the same review separation. No "standing by" reply that waits on a nested agent. Comments per **Comments**. Surgical edits, re-ground against the source for upstream-derived files. Port shared-primitive improvements to all consumers and verify each. Commit liberally.
+4. Write the code, on `pstack-code` when delegated, with a specific scope (file paths, named data shape and its organizing structure per **principle-model-the-domain**, a state machine over scattered booleans, a table/registry over branching, a typed model over repeated shape assumptions, chosen before any logic is written, and success criteria). When the implementation admits multiple valid shapes (error handling, abstraction layer, test structure), run the **arena** skill instead so the runners surface the alternatives and the cross-judge guards the pick. Mandatory: no skip-with-reason escape, and Laziness Protocol does not override it (the gain is review separation, not lines saved). A delegate cannot spawn, so it ends its report with a handoff that names the **arena** skill and its input, and the lead runs it. No "standing by" reply that waits on a nested agent. Comments per **Comments**. Surgical edits, re-ground against the source for upstream-derived files. Port shared-primitive improvements to all consumers and verify each. Commit liberally.
 5. Verify on the matching surface. "Inconclusive" or wrong-surface is not a pass. Flag it.
 6. Rebase into small, ordered commits. Stack follow-ups.
    Use the **sequence-verifiable-units** principle skill, building, verifying, and committing each small unit before the next.
 7. If the design is contested, `interrogate` before shipping.
 8. Run **Opening a PR**.
 
-Code-coupled work (one feature, one migration) goes to a single owner with the checkpoint inline. That owner fans out internally after the blocking phase. Parent-level fan-out is for slices that produce independent artifacts (audits, cross-subsystem investigations, competing experiments). Rewrite the checkpoint at phase boundaries. Spawn a fresh owner rather than chaining interrupts.
+Code that shares files has one owner for those files, with the checkpoint inline. After the blocking phase, the lead runs that owner's internal fan-out. Rewrite the checkpoint at phase boundaries.
 
 **Reply:** what you built, what you chose and why, the throughput checkpoint, open decisions. Tables for design alternatives.

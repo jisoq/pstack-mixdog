@@ -41,7 +41,7 @@ You MUST follow `references/epistemics.md`. Read it in full before writing. The 
 2. **Merge overlaps.** When several investigators cite the same PR, ticket, or doc, give it one authoritative reference.
 3. **Surface contradictions.** When two items disagree, show both. Don't pick one.
 4. **Calibrate each claim.** Find its evidence and tier. Direct: cite it and state it plainly. Inferred: hedge it and show the inference. Speculative: mark it. No evidence: put it in the gaps.
-5. **Verify citations by spot-checking.** If you're uncertain a cited item exists or says what the investigator claims, check it by reading the codebase or calling MCP tools. Don't propagate errors. Do not write files, commit, or modify external state.
+5. **Verify citations by spot-checking.** If you're uncertain a cited item exists or says what the investigator claims, check it by reading the codebase or calling MCP tools. Don't propagate errors.
 6. **Don't overreach.** The user will act on this. Leave an open question open rather than fill it with a confident guess.
 
 ## Output Format
@@ -62,7 +62,7 @@ File paths, line ranges, key symbols. Two or three lines to orient a cold reader
 
 Claims with textual evidence, each quoted or paraphrased and cited precisely:
 
-- **[Direct]** {Claim}. Source: [PR #123](url) / ticket ID / file:line. {Brief quote or paraphrase.}
+- **[Direct]** {Claim}. Source: [PR #123](https://github.com/owner/repo/pull/123) / ticket ID / file:line. {Brief quote or paraphrase.}
 - **[Supported]** {Claim}. Evidence: {list of items and what each contributes}.
 
 `[Direct]` is single-source, explicit evidence. `[Supported]` is multiple indirect items converging on a conclusion.
@@ -98,7 +98,7 @@ Specific gaps: "We searched the issue tracker for [query1], [query2], [query3] a
 
 What was actually searched, so the user can judge coverage and redirect:
 
-- **Source control history**: {file paths}, {number of commits reviewed}, PRs #{numbers}, and code comments searched. Or "Not searched. This should not happen because git and `gh` are always expected."
+- **Source control history**: {file paths}, {number of commits reviewed}, PRs #{numbers}, and code comments searched. Or "Not searched. {git or `gh`} is not installed."
 - **Issue / ticket tracker**: {ticket IDs and keyword searches}. Or "Not searched. No matching MCP available in this environment."
 - **Long-form documents**: {page titles and search queries}. Or "Not searched. No matching MCP available in this environment."
 - **Real-time team chat**: {channels searched, date ranges, queries}. Or "Not searched. No matching MCP available in this environment."

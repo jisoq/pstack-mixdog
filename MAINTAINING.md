@@ -4,44 +4,60 @@
 
 ## 동작 방식
 
-업스트림 원문(스킬, 플레이북, 원칙)은 고정된 커밋에서 복사하고, Cursor 전용 이름은 Mixdog 어댑터 한 장(`harness/adapter.md`)으로 옮깁니다. 복사본이 원문과 다른 곳은 세 가지입니다. Cursor 이름을 쓰는 스킬의 제목 아래에 어댑터 안내 한 줄이 들어가고, 복사하지 않은 업스트림 파일을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀌고, `harness/patches/`의 패치가 적용됩니다. 지금 패치는 `statechart-windows.patch` 하나로, statechart 스크립트가 bash나 WSL 없이 Windows에서 돌게 합니다. 업스트림이 Claude Code를 지원할 때 쓰는 방식(`docs/harness/claude-code.md`와 생성 스크립트)과 같은 구조입니다.
+`upstream/`은 업스트림 pstack을 Mixdog에서 그대로 돌도록 고쳐 쓴 원본이고, 어댑터는 없습니다. 에이전트가 따르는 파일(`upstream/skills/`, `upstream/agents/`)은 처음부터 Mixdog 도구 이름으로 적혀 있으며, 무엇을 어떻게 고치는지는 [`harness/PORTING.md`](harness/PORTING.md)가 정합니다. 업스트림이 바뀌면 `scripts/sync.mjs`가 3-way merge로 가져옵니다. 기준(base)은 이전에 고정한 커밋, 상대(theirs)는 새 커밋, 우리 쪽(ours)은 `upstream/`의 지금 파일입니다. 업스트림이 건드리지 않은 줄의 이식 수정은 그대로 남고, 양쪽이 같은 곳을 바꾼 경우만 충돌로 남습니다.
 
-이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/` 아래만 읽으므로, 같은 저장소에 있는 관리 도구(`scripts/`, `harness/`)는 동작에 끼어들지 않습니다. Mixdog 플러그인에는 스킬만 담을 수 있어서, Poteto mode 워크플로우와 에이전트 다섯 개는 설치할 때 `harness/INSTALL.md`가 만들고, 이후에는 pstack이 대화마다 처음 실행될 때 어댑터의 Agent sync가 새 버전에 맞춥니다.
+`scripts/build.mjs`는 `upstream/`을 복사하거나 고치지 않습니다. `upstream/`, `upstream.lock.json`, `harness/`만 읽어 `plugin.json`과 `skills/pstack-<이름>/`을 만들고, 그 전에 `upstream/`을 검사합니다. 충돌 표시가 남은 줄, `upstream/skills/`와 `upstream/agents/`의 Markdown에 남은 Cursor 전용 용어(`harness/cursor-terms.json`, `scripts/` 폴더는 제외), 없는 경로를 가리키는 상대 링크, 스킬 폴더 이름과 `name`, `upstream/skills/`에 남은 제외 스킬, `direct-skills.json`의 이름과 설명을 봅니다. 하나라도 걸리면 모든 문제를 한 번에 출력하고 아무것도 쓰지 않습니다.
 
-## 복사 범위
+이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/`만 스킬로 등록하고, Poteto mode 워크플로우와 `$pstack-<이름>` 스킬은 `upstream/`과 `harness/`의 파일을 경로로 읽습니다. 두 진입점 모두 `harness/WORKFLOW.md`의 `## Rules`를 따릅니다. Mixdog 플러그인에는 스킬만 담을 수 있어서, 워크플로우와 에이전트 다섯 개는 `harness/INSTALL.md`가 설치할 때 만들고 업데이트 뒤에 다시 맞춥니다.
 
-복사하는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐이고, `skills/` 중 `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`)은 빠집니다. Cursor 플러그인 패키징(`.cursor-plugin/`), 로고(`assets/`), Claude Code 어댑터(`docs/harness/claude-code.md`), 자동화 묶음(`automations/`) 같은 나머지는 빠지고, 복사한 문서에서 이 파일들을 가리키는 링크는 고정된 커밋의 GitHub 주소로 바뀝니다.
+`plugin.json`의 `version`은 `<업스트림 버전>+mixdog.<고정 커밋 앞 7자리>.<스탬프>`입니다. 스탬프는 `harness/WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 이어 붙인 내용의 SHA-256 앞 8자리입니다. 저장된 Poteto mode 워크플로우에는 저장할 때의 버전이 적혀 있으므로, 업스트림 커밋이나 이 세 파일이 바뀌면 다음 Poteto mode 대화의 첫 작업이 INSTALL.md를 다시 따릅니다.
 
-이 저장소가 더한 것은 `harness/`, `scripts/`, 바로 호출용 스킬 `skills/pstack-<이름>/SKILL.md`, `harness/adapter.md`를 옮겨 둔 `upstream/docs/harness/mixdog.md`, `harness/ENTRY.md`로 만든 진입 파일 `upstream/docs/harness/mixdog-entry.md`, Cursor 이름을 쓰는 스킬의 제목 아래에 넣은 Mixdog 어댑터 안내 한 줄, 그리고 `harness/patches/`의 패치가 바꾼 줄입니다.
+## 가져오는 범위
+
+sync가 가져오는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `docs/guide/`와 `README.md`, `LICENSE`, `plugin.json`뿐입니다. `skills/` 중 `harness/excluded-skills.json`에 적은 스킬(지금은 `make-bot-ui`, `setup-pstack`)은 빠집니다. 가져온 Markdown에서 이 범위 밖의 pstack 파일(제외한 스킬 포함)을 가리키는 상대 링크는 고정된 커밋의 GitHub 주소(`<repository>/blob|tree/<커밋>/pstack/<경로>`)로 바뀝니다. 주소에 커밋이 들어가므로 이런 링크가 있는 줄은 sync할 때마다 새 커밋으로 바뀝니다. `docs/guide/`, `README.md`, `LICENSE`, `plugin.json`은 사람이 읽는 문서라 업스트림 그대로 둡니다.
+
+이 저장소가 더한 것은 `harness/`, `scripts/`, 생성물(`plugin.json`, `skills/`), 그리고 예전 버전이 저장한 Poteto mode 워크플로우를 새 절차로 넘기는 `upstream/docs/harness/mixdog-entry.md`입니다. 이 파일은 가져오는 범위 밖이라 sync가 건드리지 않습니다.
 
 ## 구조
 
 | 경로 | 역할 | 수정 |
 | --- | --- | --- |
-| `harness/adapter.md` | Cursor 이름을 Mixdog 도구로 옮기는 매핑과 우선순위 규칙 | 직접 수정 |
-| `harness/ENTRY.md` | 진입 파일 `upstream/docs/harness/mixdog-entry.md`의 템플릿. Poteto mode 워크플로우와 `pstack-<이름>` 스킬이 모두 이 파일을 읽음 | 직접 수정 |
-| `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 업스트림 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
-| `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬 이름. 빌드는 이 스킬을 복사하지 않고 진입 파일의 스킬 목록에서도 빼며, 다른 문서의 링크는 고정된 커밋의 GitHub 주소로 바꿉니다 | 직접 수정 |
-| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. 진입 파일을 그 이름으로 따르라고만 적음 | 직접 수정 |
-| `harness/WORKFLOW.md` | Poteto mode 워크플로우 원본. `{{PLUGIN_ROOT}}`는 만들 때 플러그인 폴더로 바꿈 | 직접 수정 |
-| `harness/INSTALL.md` | 설치를 맡은 에이전트가 따르는 절차. 프로그램 확인, 워크플로우와 에이전트 생성 | 직접 수정 |
+| `upstream/` | Mixdog용으로 고쳐 쓴 pstack. sync가 업스트림 변경을 병합해 넣음 | `harness/PORTING.md`대로 직접 수정 |
+| `harness/PORTING.md` | `upstream/`을 Mixdog용으로 고치는 규칙. 처음 이식할 때와 충돌을 풀 때 씀 | 직접 수정 |
+| `harness/cursor-terms.json` | 빌드가 `upstream/skills/`와 `upstream/agents/`에서 막는 Cursor 전용 용어. `key`는 출력용 이름, `re`는 정규식 | 직접 수정 (sync의 TERMS 알림을 보고) |
+| `harness/WORKFLOW.md` | Poteto mode 워크플로우 원본. `## Rules`가 pstack의 진입 규칙. `{{PLUGIN_ROOT}}`와 `{{PLUGIN_VERSION}}`은 저장할 때 플러그인 폴더와 `plugin.json`의 `version`으로 바꿈 | 직접 수정 |
+| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. WORKFLOW.md의 `## Rules`를 따른 뒤 그 스킬을 실행하라고만 적음 | 직접 수정 |
+| `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
+| `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬. sync는 가져오지 않고, 빌드는 `upstream/skills/`에 남아 있으면 실패 | 직접 수정 |
+| `harness/INSTALL.md` | 설치와 업데이트 뒤 동기화를 함께 맡는 절차. 없는 프로그램 확인, 워크플로우와 에이전트 생성과 갱신 | 직접 수정 |
 | `harness/agents.md` | pstack 전용 에이전트 다섯 개의 정의와 추천 모델 | 직접 수정 |
-| `harness/patches/*.patch` | 빌드가 복사한 업스트림 파일에 적용하는 `git diff`. 경로는 cursor/plugins 루트 기준(`pstack/...`) | 업스트림 캐시에서 다시 만듦 (동기화 절차 3) |
-| `scripts/sync.mjs` | 업스트림을 받아 커밋을 고정하고 변경점을 보여준 뒤 빌드 | 실행 |
-| `scripts/build.mjs` | 고정된 업스트림과 `harness/`로 플러그인 생성물을 만들고 검사 | 실행 |
-| `upstream.lock.json` | 통합 중인 업스트림 커밋 | sync가 기록 |
-| `plugin.json`, `skills/`, `upstream/` | Mixdog이 읽는 플러그인 생성물. 빌드는 이 세 경로만 쓰고 지움 | 생성물, 직접 수정 금지 |
-| `.cache/cursor-plugins/` | 업스트림 클론 캐시 (커밋하지 않음) | 생성물 |
+| `scripts/sync.mjs` | 업스트림을 받아 `upstream/`에 병합하고 커밋을 고정한 뒤 빌드 | 실행 |
+| `scripts/build.mjs` | `upstream/`을 검사하고 `plugin.json`과 `skills/`를 생성 | 실행 |
+| `upstream.lock.json` | 병합한 업스트림 커밋. 다음 sync의 병합 기준 | sync가 기록 |
+| `plugin.json`, `skills/` | Mixdog이 읽는 생성물. 빌드는 이 두 경로만 쓰고 지움 | 생성물, 직접 수정 금지 |
+| `.cache/cursor-plugins/` | 업스트림 클론 캐시(blob:none partial clone, 커밋하지 않음). sync는 체크아웃이 아니라 git 객체에서 읽음 | 생성물 |
 
 ## 업스트림 동기화 절차
 
-pstack은 업스트림에서 계속 바뀌므로 관리자는 이 저장소를 클론한 폴더에서 아래 순서를 그대로 따릅니다. Node 22와 git이 필요합니다.
+Node 22와 git이 필요합니다. 동기화는 자동으로 돌지 않으며, 관리자가 원할 때 이 저장소를 클론한 폴더에서 아래 순서를 따릅니다.
 
-1. `node scripts/sync.mjs`를 실행합니다(특정 브랜치나 태그는 `--ref <ref>`). 업스트림을 받아 이전 커밋과의 변경 로그와 diff 통계를 출력한 뒤, 새 커밋을 `upstream.lock.json`에 고정하고 빌드합니다.
-2. `REVIEW` 표시가 나오면 업스트림의 Claude Code 어댑터나 생성 스크립트가 바뀐 것입니다. 이때 sync는 `upstream.lock.json`을 그대로 두고 빌드하지 않은 채 종료 코드 2로 멈추며, 다시 실행해도 확인하기 전까지 매번 멈춥니다. 출력된 diff를 읽고 같은 변경이 `harness/adapter.md`(필요하면 `harness/ENTRY.md`)에도 필요한지 판단해 반영한 뒤 `node scripts/sync.mjs --reviewed`를 실행합니다(`--ref`를 썼다면 같은 값을 함께). 이 실행은 업스트림을 다시 받아 그 시점의 로그와 diff를 출력하고, 그 커밋을 고정한 뒤 빌드합니다. 그사이 업스트림이 또 바뀌었다면 검토하지 않은 변경까지 함께 승인되므로, 출력된 커밋이 검토한 커밋과 같은지 확인합니다.
-3. 빌드가 `FAIL`로 끝나면 메시지대로 고칩니다. 가장 흔한 경우는 "adapter에 `<용어>` 행이 없음"입니다. 업스트림이 새 Cursor 전용 이름을 쓰기 시작했다는 뜻이므로 `harness/adapter.md`에 그 용어의 Mixdog 대응을 추가하고 `node scripts/build.mjs`를 다시 실행합니다. "`<패치>` no longer applies"는 업스트림이 패치가 고치는 줄을 바꿨다는 뜻입니다. 빌드는 각 hunk의 원래 줄이 고정된 업스트림에 정확히 한 곳 있을 때만 적용하므로, 비슷한 자리에 대충 붙지 않고 멈춥니다. `git -C .cache/cursor-plugins apply --3way ../../harness/patches/<패치>`로 캐시에 적용해 충돌을 풀고, `git -C .cache/cursor-plugins diff HEAD --output=../../harness/patches/<패치>`로 패치를 다시 쓴 뒤, `git -C .cache/cursor-plugins reset --hard`로 캐시를 고정 커밋 상태로 되돌리고 빌드합니다. `--3way`는 패치를 index에도 올리므로 `HEAD`와 비교해야 패치 전체가 담기고, `reset --hard`라야 index까지 되돌아갑니다. 업스트림이 같은 문제를 고쳤다면 패치를 지웁니다. 빌드가 실패하면 생성물은 바뀌지 않습니다.
-4. `harness/DIRECT-SKILL.md`나 `harness/direct-skills.json`을 고쳤다면 `skills/pstack-<이름>` 폴더마다 생성된 스킬을 Mixdog 스킬 검사기로 확인합니다.
+먼저 `node scripts/sync.mjs --check`로 업스트림이 고정된 커밋 이후 바뀌었는지만 확인할 수 있습니다. 바뀌었으면 새 커밋 목록과 diff 통계를 출력하고, 그대로면 "Already current"를 출력합니다. 업스트림 캐시(`.cache/cursor-plugins/`) 말고는 아무것도 바꾸지 않습니다.
+
+1. `upstream/`에 커밋하지 않은 수정이 없게 합니다. sync는 `upstream/`의 파일을 바로 고치므로, 깨끗한 상태에서 시작해야 병합 결과를 `git diff`로 그대로 검토할 수 있습니다.
+2. `node scripts/sync.mjs`를 실행합니다(특정 브랜치나 태그는 `--ref <ref>`). 업스트림을 받아 이전 커밋과의 변경 로그와 diff 통계를 출력하고, `upstream/`에 병합한 뒤, 새 커밋을 `upstream.lock.json`에 고정하고 빌드합니다. 파일마다 이렇게 처리합니다.
+   - 업스트림이 바꾸지 않은 파일은 건너뜁니다.
+   - 업스트림이 추가한 파일은 업스트림 것을 씁니다.
+   - 업스트림이 지운 파일은 이전 업스트림과 같으면 지우고, 이 저장소에서 고쳤으면 충돌입니다.
+   - 이 저장소에서 지운 파일을 업스트림이 바꿨으면 충돌입니다.
+   - 나머지 텍스트 파일은 `git merge-file --diff3`로 병합하고, 겹치는 곳에는 충돌 표시를 넣습니다. 바이너리 파일은 이 저장소에서 고치지 않았을 때만 업스트림 것을 쓰고, 고쳤으면 충돌입니다.
+   - 실행 권한은 업스트림을 따릅니다.
+
+   `upstream.lock.json`이 없으면(첫 sync) 기준이 비어 있으므로 가져오는 범위 전체를 그대로 씁니다. 캐시에 이전 고정 커밋이 없으면 받아 옵니다.
+3. 충돌이 있으면 sync는 빌드 출력 뒤에 경로마다 `CONFLICT <경로>: <이유>`를 출력하고 종료 코드 2로 끝납니다. 고정 커밋은 이미 새 커밋이므로 다시 실행하면 "Already current"가 나오고, 충돌 표시가 남은 동안 빌드는 계속 실패합니다. 경로마다 `harness/PORTING.md`를 기준으로 풉니다. 충돌 표시에서 `<<<<<<< ours`부터 `|||||||`까지는 이 저장소의 이식본, `||||||| base`부터 `=======`까지는 이전 업스트림, `=======`부터 `>>>>>>> theirs`까지는 새 업스트림입니다. 새 업스트림의 변경을 받아들이고, 그 줄에 PORTING.md의 규칙을 다시 적용한 뒤 표시를 지웁니다. 지우기 충돌은 업스트림이 왜 지웠는지 보고 파일을 지우거나 남깁니다. 다 풀었으면 `node scripts/build.mjs`를 실행합니다.
+4. `NOTICE` 표시가 나오면 업스트림 생성 스크립트(`scripts/generate-pstack-harness-trees.mjs`)의 `TERMS`, 즉 업스트림이 관리하는 Cursor 전용 이름 목록이 바뀐 것입니다. 출력된 diff를 보고 `harness/cursor-terms.json`과 `harness/PORTING.md`에도 같은 변경이 필요한지 판단합니다. sync를 막지는 않습니다.
+5. 빌드가 `FAIL`로 끝나면 메시지대로 고칩니다. `<파일>:<줄> has the Cursor-only term <용어>`는 업스트림이 그 줄에 Cursor 전용 이름을 새로 썼다는 뜻이니 PORTING.md대로 옮깁니다. `links to <경로>, which does not exist`는 링크 대상이 플러그인에 없다는 뜻입니다. 빌드가 실패하면 생성물은 바뀌지 않으니, 고친 뒤 `node scripts/build.mjs`를 다시 실행합니다.
+6. `harness/DIRECT-SKILL.md`나 `harness/direct-skills.json`을 고쳤다면 `skills/pstack-<이름>` 폴더마다 생성된 스킬을 Mixdog 스킬 검사기로 확인합니다.
    `node "$env:LOCALAPPDATA\Programs\mixdog-desktop\resources\runtime.asar.unpacked\node_modules\mixdog\src\defaults\skills\skill-creator\scripts\validate-skill.mjs" skills/pstack-<이름>`
-5. `node scripts/build.mjs --check`가 "up to date"를 출력하는지, `node --test scripts/*.test.mjs`가 통과하는지 확인합니다.
-6. `upstream.lock.json`, 생성물, 바뀐 `harness/`를 함께 커밋하고 푸시합니다. Windows git은 실행 권한을 기록하지 않으므로, 업스트림에서 실행 파일(`git -C .cache/cursor-plugins ls-files -s`의 `100755`)이 새로 생겼다면 `git update-index --chmod=+x upstream/<경로>`로 같은 권한을 붙여 커밋합니다. 사용자는 `update_plugin`으로 새 버전을 받습니다. 이미 열린 대화에 로드된 스킬 본문은 그대로입니다.
-7. `harness/WORKFLOW.md`나 `harness/agents.md`를 고쳐도 각 PC에서 따로 할 일은 없습니다. 업데이트 뒤 첫 pstack 실행이 워크플로우와 에이전트 정의를 맞춥니다.
+7. `node scripts/build.mjs --check`가 "up to date"를 출력하는지, `node --test scripts/*.test.mjs`가 통과하는지 확인합니다.
+8. `upstream/`, `upstream.lock.json`, 생성물, 바뀐 `harness/`를 함께 커밋하고 푸시합니다. Windows git은 실행 권한을 기록하지 않습니다. sync가 "Upstream changed the executable bit" 아래에 `+x upstream/<경로>`나 `-x upstream/<경로>`를 출력했다면, 그 파일을 `git add`한 뒤 경로마다 `git update-index --chmod=+x upstream/<경로>`(`-x`면 `--chmod=-x`)를 실행하고 커밋합니다. 사용자는 `update_plugin`으로 새 버전을 받습니다. 이미 열린 대화에 로드된 스킬 본문은 그대로입니다.
+9. `harness/WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 고쳐도 각 PC에서 따로 할 일은 없습니다. 버전 스탬프가 바뀌므로 업데이트 뒤 첫 Poteto mode 대화가 INSTALL.md를 따라 워크플로우와 에이전트를 맞춥니다. `$pstack-<이름>` 스킬만 쓰는 사용자는 INSTALL.md를 다시 따라 달라고 요청하면 됩니다.

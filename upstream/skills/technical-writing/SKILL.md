@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 # Technical writing
 
-In Mixdog, read [the Mixdog adapter](../../docs/harness/mixdog.md) once per session before you follow this skill. It maps the Cursor names in pstack skills to Mixdog.
-
 Write so a tired engineer understands on the first read. Apply all four layers.
 
 Three rules sit above the layers:
