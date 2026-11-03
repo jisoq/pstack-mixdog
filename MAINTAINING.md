@@ -8,9 +8,11 @@
 
 `scripts/build.mjs`는 `upstream/`을 복사하거나 고치지 않습니다. `upstream/`, `upstream.lock.json`, `harness/`만 읽어 `plugin.json`과 `skills/pstack-<이름>/`을 만들고, 그 전에 `upstream/`을 검사합니다. 충돌 표시가 남은 줄, `upstream/skills/`와 `upstream/agents/`의 Markdown에 남은 Cursor 전용 용어(`harness/cursor-terms.json`, `scripts/` 폴더는 제외), 없는 경로를 가리키는 상대 링크, 스킬 폴더 이름과 `name`, `upstream/skills/`에 남은 제외 스킬, `direct-skills.json`의 이름과 설명을 봅니다. 하나라도 걸리면 모든 문제를 한 번에 출력하고 아무것도 쓰지 않습니다.
 
-이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/`만 스킬로 등록하고, Poteto mode 워크플로우와 `$pstack-<이름>` 스킬은 `upstream/`과 `harness/`의 파일을 경로로 읽습니다. 두 진입점 모두 `harness/WORKFLOW.md`의 `## Rules`를 따릅니다. Mixdog 플러그인에는 스킬만 담을 수 있어서, 워크플로우와 에이전트 다섯 개는 `harness/INSTALL.md`가 설치할 때 만들고 업데이트 뒤에 다시 맞춥니다.
+이 저장소의 최상위 폴더가 그대로 Mixdog 플러그인입니다. Mixdog은 최상위 `plugin.json`과 `skills/`만 스킬로 등록하고, Poteto mode 워크플로우와 `$pstack-<이름>` 스킬은 `upstream/`과 `harness/`의 파일을 경로로 읽습니다. 두 진입점 모두 작업마다 규칙 파일 `harness/WORKFLOW.md`를 끝까지 읽고 그 `## Rules`를 따릅니다. Mixdog 플러그인에는 스킬만 담을 수 있어서, 워크플로우와 에이전트 다섯 개는 `harness/INSTALL.md`가 설치할 때 만들고 필요할 때 다시 맞춥니다. 저장되는 워크플로우는 `harness/SAVED-WORKFLOW.md`의 짧은 안내로, 플러그인 폴더의 절대 경로와 설치 스탬프만 담고 작업마다 WORKFLOW.md를 읽으라고 적습니다. 플러그인 업데이트는 같은 폴더에 다시 풀리므로 저장된 경로는 그대로 유효하고, WORKFLOW.md의 변경은 워크플로우를 다시 저장하지 않아도 다음 작업부터 적용됩니다.
 
-`plugin.json`의 `version`은 `<업스트림 버전>+mixdog.<고정 커밋 앞 7자리>.<스탬프>`입니다. 스탬프는 `harness/WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 이어 붙인 내용의 SHA-256 앞 8자리입니다. 저장된 Poteto mode 워크플로우에는 저장할 때의 버전이 적혀 있으므로, 업스트림 커밋이나 이 세 파일이 바뀌면 다음 Poteto mode 대화의 첫 작업이 INSTALL.md를 다시 따릅니다.
+`plugin.json`의 `version`은 `<업스트림 버전>+mixdog.<고정 커밋 앞 7자리>.<스탬프>`입니다. 설치 스탬프는 `harness/SAVED-WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 이어 붙인 내용의 SHA-256 앞 8자리입니다. WORKFLOW.md는 작업마다 새로 읽히므로 스탬프에 들어가지 않고, 대신 ``The current setup stamp is `<스탬프>`.`` 줄로 현재 스탬프를 담습니다. 이 줄이 없거나 값이 다르면 빌드는 넣어야 할 줄을 그대로 출력하며 실패하고, 손으로 쓰는 파일은 고치지 않습니다. 저장된 워크플로우에는 저장할 때의 스탬프가 적혀 있으므로, 세 파일 중 하나가 바뀌면 다음 Poteto mode 대화의 첫 작업이 WORKFLOW.md를 따라 INSTALL.md를 다시 따릅니다.
+
+예전 버전이 저장한 워크플로우도 새 안내로 넘어갑니다. 4e3f290 시절 워크플로우는 `plugin.json`의 `version`을 비교하는데, 스탬프가 바뀌어 버전이 달라지므로 INSTALL.md를 따릅니다. 그보다 앞선 어댑터 시절 워크플로우는 `upstream/docs/harness/mixdog-entry.md`를 거쳐 INSTALL.md를 따릅니다. 둘 다 INSTALL.md가 새 안내를 저장한 뒤 그 작업을 WORKFLOW.md대로 이어 갑니다.
 
 ## 가져오는 범위
 
@@ -25,8 +27,9 @@ sync가 가져오는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `doc
 | `upstream/` | Mixdog용으로 고쳐 쓴 pstack. sync가 업스트림 변경을 병합해 넣음 | `harness/PORTING.md`대로 직접 수정 |
 | `harness/PORTING.md` | `upstream/`을 Mixdog용으로 고치는 규칙. 처음 이식할 때와 충돌을 풀 때 씀 | 직접 수정 |
 | `harness/cursor-terms.json` | 빌드가 `upstream/skills/`와 `upstream/agents/`에서 막는 Cursor 전용 용어. `key`는 출력용 이름, `re`는 정규식 | 직접 수정 (sync의 TERMS 알림을 보고) |
-| `harness/WORKFLOW.md` | Poteto mode 워크플로우 원본. `## Rules`가 pstack의 진입 규칙. `{{PLUGIN_ROOT}}`와 `{{PLUGIN_VERSION}}`은 저장할 때 플러그인 폴더와 `plugin.json`의 `version`으로 바꿈 | 직접 수정 |
-| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. WORKFLOW.md의 `## Rules`를 따른 뒤 그 스킬을 실행하라고만 적음 | 직접 수정 |
+| `harness/WORKFLOW.md` | pstack 규칙 파일. Poteto mode와 `$pstack-<이름>`이 작업마다 끝까지 읽음. `## Rules`가 pstack의 진입 규칙. 현재 설치 스탬프 줄, 스탬프가 다른 Poteto mode 워크플로우를 INSTALL.md로 보내는 규칙, 첫 메시지 첫 줄을 `pstack verified`로 쓰라는 끝 줄을 담음 | 직접 수정 (스탬프 줄은 빌드가 알려 준 값으로) |
+| `harness/SAVED-WORKFLOW.md` | Poteto mode 워크플로우로 저장되는 안내. 작업마다 WORKFLOW.md를 읽으라고만 적음. `{{PLUGIN_ROOT}}`와 `{{SETUP_STAMP}}`는 저장할 때 플러그인 폴더와 현재 설치 스탬프로 바꿈. `pstack verified`라는 말을 넣지 않음 | 직접 수정 |
+| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. WORKFLOW.md를 끝까지 읽고 따른 뒤 그 `## Rules`대로 그 스킬을 실행하라고만 적음. `pstack verified`라는 말을 넣지 않음 | 직접 수정 |
 | `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
 | `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬. sync는 가져오지 않고, 빌드는 `upstream/skills/`에 남아 있으면 실패 | 직접 수정 |
 | `harness/INSTALL.md` | 설치와 업데이트 뒤 동기화를 함께 맡는 절차. 없는 프로그램 확인, 워크플로우와 에이전트 생성과 갱신 | 직접 수정 |
@@ -60,4 +63,4 @@ Node 22와 git이 필요합니다. 동기화는 자동으로 돌지 않으며, �
    `node "$env:LOCALAPPDATA\Programs\mixdog-desktop\resources\runtime.asar.unpacked\node_modules\mixdog\src\defaults\skills\skill-creator\scripts\validate-skill.mjs" skills/pstack-<이름>`
 7. `node scripts/build.mjs --check`가 "up to date"를 출력하는지, `node --test scripts/*.test.mjs`가 통과하는지 확인합니다.
 8. `upstream/`, `upstream.lock.json`, 생성물, 바뀐 `harness/`를 함께 커밋하고 푸시합니다. Windows git은 실행 권한을 기록하지 않습니다. sync가 "Upstream changed the executable bit" 아래에 `+x upstream/<경로>`나 `-x upstream/<경로>`를 출력했다면, 그 파일을 `git add`한 뒤 경로마다 `git update-index --chmod=+x upstream/<경로>`(`-x`면 `--chmod=-x`)를 실행하고 커밋합니다. 사용자는 `update_plugin`으로 새 버전을 받습니다. 이미 열린 대화에 로드된 스킬 본문은 그대로입니다.
-9. `harness/WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 고쳐도 각 PC에서 따로 할 일은 없습니다. 버전 스탬프가 바뀌므로 업데이트 뒤 첫 Poteto mode 대화가 INSTALL.md를 따라 워크플로우와 에이전트를 맞춥니다. `$pstack-<이름>` 스킬만 쓰는 사용자는 INSTALL.md를 다시 따라 달라고 요청하면 됩니다.
+9. 하네스를 고쳐도 각 PC에서 따로 할 일은 없습니다. `harness/WORKFLOW.md`만 고치면 스탬프는 그대로이고, 업데이트 뒤 다음 작업부터 적용됩니다. `harness/SAVED-WORKFLOW.md`, `harness/agents.md`, `harness/INSTALL.md`를 고치면 빌드가 새 스탬프 줄을 출력하며 실패하니, WORKFLOW.md의 스탬프 줄을 그 줄로 바꾸고 다시 빌드합니다. 업데이트 뒤 첫 Poteto mode 대화가 INSTALL.md를 따라 워크플로우와 에이전트를 맞춥니다. `$pstack-<이름>` 스킬만 쓰는 사용자는 에이전트가 바뀌었을 때 INSTALL.md를 다시 따라 달라고 요청하면 됩니다.

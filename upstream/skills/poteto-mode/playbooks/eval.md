@@ -19,7 +19,7 @@
 3. **Author one organic prompt.** What a user would type. No leakage of what's being measured.
 4. **Spawn N candidates** across the panel seats, `pstack-code` and `pstack-verify`, per the **arena** skill's Phase B. Each works in its own sanitized dir. Same prompt to each.
 5. **Spawn one blinded judge** on `pstack-judge` per the **arena** skill's Phase C. Judge sees outputs by sanitized label and the rubric, never a model name, agent name, or seat.
-6. **Verify the chain from transcripts, not self-report.** Read each candidate's conversation with `session` `read` on the `sessionId` that `agent` `close` reports for its tag, and look at which files it actually opened. Grade chain-following from the files it really read plus the shape of the code, never from the candidate's own claims.
+6. **Verify the chain from transcripts, not self-report.** Read each candidate's conversation with `session` `read` on the `sessionId` that `agent` `close` reports for its tag, and look at which files it actually opened. Grade chain-following from the files it really read plus the shape of the code, never from the candidate's own claims. A candidate the lead ran itself has no transcript, so report its chain as not verified from a transcript, never as passed.
 7. **Read every candidate output yourself** end to end. Compare to the judge's verdict. Disagreement means a model is biased or the rubric is ambiguous. Synthesize. Eval is read-only and never opens a PR.
 
 **Reply:** variant under test, rubric, per-candidate notes, judge's verdict, your synthesis, and a recommendation for whether to promote the variant.

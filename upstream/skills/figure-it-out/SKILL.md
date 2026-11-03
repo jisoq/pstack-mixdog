@@ -10,7 +10,7 @@ When the task matches no playbook, design one. The deliverable before any code i
 
 ## Start
 
-Init a `todo` list whose first item is to read the Principles section of the **poteto-mode** skill. Then add the phases below as todos.
+Open a `todo` list whose first item is to read the Principles section of the **poteto-mode** skill. Then add the phases below as todos, each named by its outcome. Use `append` when the list already has open items, and `init` otherwise.
 
 ## Phase A: Frame
 
