@@ -46,7 +46,7 @@ If cost is the worry, say where the tokens go and how to spend fewer. pstack spe
 
 ## Start a task in Poteto mode
 
-`/poteto-mode` matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A step it skips stays in the list as `skip: <reason>`. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one.
+`/poteto-mode` matches the task to a playbook, lists the playbook's steps in the todo list, and runs the other skills as the steps need them. A step it skips stays in the list as `skip: <reason>`. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one.
 Poteto mode is a Mixdog workflow. The user picks it in the composer's workflow selector, and every task in that conversation runs under `/poteto-mode`. A pstack skill they name there, such as `/how`, runs in place of it for that task. Outside Poteto mode, only the `$pstack-<name>` skills run, each for the task it was selected for and that task's follow-ups.
 
 Mid-chat, "new task" makes the mode match a fresh playbook. `/poteto-mode` already uses `poteto-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, spawn it on `pstack-code`, or on `pstack-hard` for the hardest changes.
@@ -131,7 +131,7 @@ Principles are one-rule skills that `/poteto-mode` reads and cites in its replie
 | The mode stopped applying after a few turns | The conversation isn't in Poteto mode. Pick Poteto mode in the composer's workflow selector. |
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
 | A new model choice had no effect | A pstack agent's model applies to the agents spawned after the change. Rerun the step that spawns it. |
-| A spawn was refused | The pstack agent is missing or turned off. Ask Mixdog to follow `<root>/harness/INSTALL.md` again, then pick its model and turn it on in Mixdog's agent settings. |
+| A spawn was refused | The pstack agent is missing or turned off, so the lead does that role itself. To have the role delegated, pick the agent's model and turn it on in Mixdog's agent settings. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill didn't load on its own | A `$pstack-<name>` skill loads when the user selects it, in any conversation, and it can run other pstack skills by path there. Typing `/<name>` works only in a Poteto mode conversation. `/poteto-mode` runs the skills its steps need, not every skill, and principles load only through the pstack skills that cite them. |
 | Parallel agents overwrote each other | Give each agent its own worktree. |

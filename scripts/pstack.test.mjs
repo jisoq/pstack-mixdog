@@ -39,8 +39,9 @@ const SOURCE = {
   ),
   "skills/beta/scripts/README.md": "# run\n\nCursor runs this with `Task`.\n",
 };
+// WORKFLOW.md is left out, because project() writes it with the stamp of the harness it builds.
 const HARNESS = {
-  "WORKFLOW.md": "---\nid: poteto-mode\n---\n\nThe workflow.\n",
+  "SAVED-WORKFLOW.md": "---\nid: poteto-mode\n---\n\nRead the rules.\n",
   "agents.md": "# agents\n",
   "INSTALL.md": "# install\n",
   "PORTING.md": "# Porting\n\n## Roles\n",
@@ -75,9 +76,14 @@ function list(dir) {
 
 function stamp(harness) {
   return createHash("sha256")
-    .update(harness["WORKFLOW.md"] + harness["agents.md"] + harness["INSTALL.md"])
+    .update(harness["SAVED-WORKFLOW.md"] + harness["agents.md"] + harness["INSTALL.md"])
     .digest("hex")
     .slice(0, 8);
+}
+
+// A WORKFLOW.md that holds the current setup stamp of harness.
+function rules(harness) {
+  return `# rules\n\nThe current setup stamp is \`${stamp(harness)}\`.\n\n## Rules\n`;
 }
 
 // Reads one-line frontmatter values in any YAML quoting: plain, 'single' with '' escapes, or "double".
@@ -111,7 +117,8 @@ function project(t, { upstream = SOURCE, harness = {}, lock = true } = {}) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const dirs = { root, upstream: join(root, "upstream"), harness: join(root, "harness"), lock: join(root, "upstream.lock.json") };
   write(dirs.upstream, upstream);
-  write(dirs.harness, { ...HARNESS, ...harness });
+  const files = { ...HARNESS, ...harness };
+  write(dirs.harness, { "WORKFLOW.md": rules(files), ...files });
   if (lock) writeFileSync(dirs.lock, `${JSON.stringify({ repository: MANIFEST.repository, ref: "main", commit: COMMIT, syncedAt: "2026-01-01T00:00:00.000Z" }, null, 2)}\n`);
   return {
     ...dirs,
@@ -145,24 +152,37 @@ describe("build", () => {
     assert.equal(p.build("--check").status, 0);
   });
 
-  test("a change to WORKFLOW.md, agents.md, or INSTALL.md changes the version stamp, and other harness files do not", (t) => {
+  test("a change to SAVED-WORKFLOW.md, agents.md, or INSTALL.md changes the setup stamp, and the build fails until WORKFLOW.md holds it", (t) => {
     const p = project(t);
     assert.equal(p.build().status, 0);
+    const workflow = join(p.harness, "WORKFLOW.md");
+    const expected = (harness) => [`${workflow} does not hold the current setup stamp. Its stamp line must read: The current setup stamp is \`${stamp(harness)}\`.`];
     const harness = { ...HARNESS };
-    for (const name of ["WORKFLOW.md", "agents.md", "INSTALL.md"]) {
+    for (const name of ["SAVED-WORKFLOW.md", "agents.md", "INSTALL.md"]) {
+      const [built, held] = [p.read("plugin.json"), p.read("harness/WORKFLOW.md")];
       harness[name] += "Changed.\n";
       write(p.harness, { [name]: harness[name] });
-      const drift = p.build("--check");
-      assert.equal(drift.status, 1, name);
-      assert.match(drift.stdout, /out of date in 1 paths/, name);
+      const stale = p.build();
+      assert.equal(stale.status, 1, name);
+      assert.deepEqual(fails(stale), expected(harness), name);
+      assert.equal(p.read("plugin.json"), built, name);
+      assert.equal(p.read("harness/WORKFLOW.md"), held, name);
+
+      write(p.harness, { "WORKFLOW.md": rules(harness) });
       assert.equal(p.build().status, 0, name);
       assert.equal(JSON.parse(p.read("plugin.json")).version, `1.2.3+mixdog.0123456.${stamp(harness)}`, name);
     }
-    write(p.harness, { "PORTING.md": "# Porting\n\n## Roles\n\nChanged.\n" });
+    // WORKFLOW.md is read live on every task, so its own edits need no resync.
+    write(p.harness, { "WORKFLOW.md": `${rules(harness)}\n- Changed.\n`, "PORTING.md": "# Porting\n\n## Roles\n\nChanged.\n" });
     assert.equal(p.build("--check").status, 0);
+
+    write(p.harness, { "WORKFLOW.md": "# rules\n\n## Rules\n" });
+    const missing = p.build();
+    assert.equal(missing.status, 1);
+    assert.deepEqual(fails(missing), expected(harness));
   });
 
-  test("renders a $pstack-<name> skill for each listed skill that sends its reader to the workflow's rules, then the skill", (t) => {
+  test("renders a $pstack-<name> skill for each listed skill that sends its reader through WORKFLOW.md in full, then the skill", (t) => {
     const description = `Run beta's "plain" steps: one line.`;
     const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: description }) } });
     const result = p.build();
@@ -173,9 +193,9 @@ describe("build", () => {
     assert.equal(fields.name, "pstack-beta");
     assert.equal(fields.description, description);
     assert.equal(fields.when_to_use, "User selects $pstack-beta; never inferred from the task.");
-    const rules = wrapper.indexOf("Read the `## Rules` section of `<root>/harness/WORKFLOW.md`");
-    assert.ok(rules !== -1, wrapper);
-    assert.ok(wrapper.indexOf("run the `beta` skill as those Rules say") > rules, wrapper);
+    const start = wrapper.indexOf("Read `<root>/harness/WORKFLOW.md` in full and follow it for this task");
+    assert.ok(start !== -1, wrapper);
+    assert.ok(wrapper.indexOf("run the `beta` skill as its `## Rules` section says") > start, wrapper);
     assert.match(readFileSync(join(REAL_HARNESS, "WORKFLOW.md"), "utf8"), /^## Rules$/m);
     assert.equal(p.build("--check").status, 0);
   });
@@ -359,6 +379,25 @@ describe("build", () => {
       assert.equal(statSync(join(p.root, path)).mtime.getFullYear(), 2000, path);
     }
     assert.equal(p.build("--check").status, 0);
+  });
+});
+
+describe("harness", () => {
+  const real = (name) => readFileSync(join(REAL_HARNESS, name), "utf8");
+  const placeholders = (text) => [...new Set(text.match(/\{\{[A-Z][A-Z0-9_]*\}\}/g))].sort();
+
+  test("the saved workflow has only placeholders INSTALL.md fills, and WORKFLOW.md, read live, has none", () => {
+    const saved = real("SAVED-WORKFLOW.md");
+    assert.equal(frontmatter(saved).id, "poteto-mode");
+    assert.deepEqual(placeholders(saved), ["{{PLUGIN_ROOT}}", "{{SETUP_STAMP}}"]);
+    for (const placeholder of placeholders(saved)) assert.ok(real("INSTALL.md").includes(`\`${placeholder}\``), placeholder);
+    assert.deepEqual(placeholders(real("WORKFLOW.md")), []);
+  });
+
+  test("WORKFLOW.md ends by asking for the pstack verified marker, which only a reader of it can know", () => {
+    const marker = real("WORKFLOW.md").trimEnd().split("\n").at(-1).match(/first line of your first message on the task is exactly `([^`]+)`\.$/)?.[1];
+    assert.equal(marker, "pstack verified");
+    for (const name of ["SAVED-WORKFLOW.md", "DIRECT-SKILL.md"]) assert.ok(!real(name).includes(marker), name);
   });
 });
 

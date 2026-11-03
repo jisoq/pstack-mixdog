@@ -28,8 +28,11 @@ const PLUGIN = dirname(UPSTREAM);
 const SOURCE = relative(PLUGIN, UPSTREAM);
 // The output root is the plugin repo, so everything else in it is hand-written and never touched.
 const OWNED = ["plugin.json", "skills"];
-// The Poteto mode workflow records the plugin version, so a change to any of these makes its next conversation resync.
-const STAMPED = ["WORKFLOW.md", "agents.md", "INSTALL.md"];
+// The saved Poteto mode workflow names the stamp of these, so a change to any of them makes its next conversation resync.
+// WORKFLOW.md is read live on every task, so it holds the current stamp instead of feeding it.
+const STAMPED = ["SAVED-WORKFLOW.md", "agents.md", "INSTALL.md"];
+const RULES = "WORKFLOW.md";
+const STAMP_LINE = /^The current setup stamp is `([^`\r\n]*)`\.\r?$/m;
 const PORT_AUTHOR = "jisoq";
 const PLUGIN_REPOSITORY = "https://github.com/jisoq/pstack-mixdog";
 const COMMAND = "node scripts/build.mjs";
@@ -122,6 +125,10 @@ function main() {
     .update(Buffer.concat(STAMPED.map((name) => readFileSync(join(HARNESS, name)))))
     .digest("hex")
     .slice(0, 8);
+  const rules = join(HARNESS, RULES);
+  if (readFileSync(rules, "utf8").match(STAMP_LINE)?.[1] !== stamp) {
+    problems.push(`${show(rules)} does not hold the current setup stamp. Its stamp line must read: The current setup stamp is \`${stamp}\`.`);
+  }
   const { description, homepage, license, keywords } = manifest;
   const version = `${manifest.version}+mixdog.${lock.commit.slice(0, 7)}.${stamp}`;
   // Mixdog shows only one author string, so the port credit rides in it after the upstream author.
@@ -174,7 +181,7 @@ function main() {
     }
   }
   // The workflow and install read these; PORTING.md and cursor-terms.json name Cursor on purpose.
-  for (const path of [...STAMPED, "DIRECT-SKILL.md", "excluded-skills.json", "direct-skills.json"].map((name) => join(HARNESS, name))) {
+  for (const path of [...STAMPED, RULES, "DIRECT-SKILL.md", "excluded-skills.json", "direct-skills.json"].map((name) => join(HARNESS, name))) {
     scan(show(path), readFileSync(path, "utf8"), anywhere);
   }
   for (const [path, { bytes }] of rendered) {

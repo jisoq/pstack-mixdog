@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Arena
 
-Open a `todo` list with `init`, one item per phase (Frame, Fan out, Cross-judge, Pick, Graft, Verify), before launching anything.
+Open a `todo` list with one item per phase (Frame, Fan out, Cross-judge, Pick, Graft, Verify), each named by its outcome, before launching anything. Use `append` when the list already has open items, as when architect runs arena, and `init` otherwise.
 
 ## Phase A: Frame
 

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Start
 
-Open a `todo` list with `init`, one item per phase, before launching anything.
+Open a `todo` list with one item per phase, each named by its outcome, before launching anything. Use `append` when the list already has open items, and `init` otherwise.
 
 1. Frame
 2. Fan out
