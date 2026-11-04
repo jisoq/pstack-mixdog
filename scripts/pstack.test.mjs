@@ -394,9 +394,9 @@ describe("harness", () => {
     assert.deepEqual(placeholders(real("WORKFLOW.md")), []);
   });
 
-  test("WORKFLOW.md ends by asking for the pstack verified marker, which only a reader of it can know", () => {
+  test("WORKFLOW.md ends by asking for the pstack activated marker, which only a reader of it can know", () => {
     const marker = real("WORKFLOW.md").trimEnd().split("\n").at(-1).match(/first line of your first message on the task is exactly `([^`]+)`\.$/)?.[1];
-    assert.equal(marker, "pstack verified");
+    assert.equal(marker, "pstack activated");
     for (const name of ["SAVED-WORKFLOW.md", "DIRECT-SKILL.md"]) assert.ok(!real(name).includes(marker), name);
   });
 });

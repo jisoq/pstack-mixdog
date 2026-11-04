@@ -27,9 +27,9 @@ sync가 가져오는 것은 업스트림 `pstack/`의 `skills/`, `agents/`, `doc
 | `upstream/` | Mixdog용으로 고쳐 쓴 pstack. sync가 업스트림 변경을 병합해 넣음 | `harness/PORTING.md`대로 직접 수정 |
 | `harness/PORTING.md` | `upstream/`을 Mixdog용으로 고치는 규칙. 처음 이식할 때와 충돌을 풀 때 씀 | 직접 수정 |
 | `harness/cursor-terms.json` | 빌드가 `upstream/skills/`와 `upstream/agents/`에서 막는 Cursor 전용 용어. `key`는 출력용 이름, `re`는 정규식 | 직접 수정 (sync의 TERMS 알림을 보고) |
-| `harness/WORKFLOW.md` | pstack 규칙 파일. Poteto mode와 `$pstack-<이름>`이 작업마다 끝까지 읽음. `## Rules`가 pstack의 진입 규칙. 현재 설치 스탬프 줄, 스탬프가 다른 Poteto mode 워크플로우를 INSTALL.md로 보내는 규칙, 첫 메시지 첫 줄을 `pstack verified`로 쓰라는 끝 줄을 담음 | 직접 수정 (스탬프 줄은 빌드가 알려 준 값으로) |
-| `harness/SAVED-WORKFLOW.md` | Poteto mode 워크플로우로 저장되는 안내. 작업마다 WORKFLOW.md를 읽으라고만 적음. `{{PLUGIN_ROOT}}`와 `{{SETUP_STAMP}}`는 저장할 때 플러그인 폴더와 현재 설치 스탬프로 바꿈. `pstack verified`라는 말을 넣지 않음 | 직접 수정 |
-| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. WORKFLOW.md를 끝까지 읽고 따른 뒤 그 `## Rules`대로 그 스킬을 실행하라고만 적음. `pstack verified`라는 말을 넣지 않음 | 직접 수정 |
+| `harness/WORKFLOW.md` | pstack 규칙 파일. Poteto mode와 `$pstack-<이름>`이 작업마다 끝까지 읽음. `## Rules`가 pstack의 진입 규칙. 현재 설치 스탬프 줄, 스탬프가 다른 Poteto mode 워크플로우를 INSTALL.md로 보내는 규칙, 첫 메시지 첫 줄을 `pstack activated`로 쓰라는 끝 줄을 담음 | 직접 수정 (스탬프 줄은 빌드가 알려 준 값으로) |
+| `harness/SAVED-WORKFLOW.md` | Poteto mode 워크플로우로 저장되는 안내. 작업마다 WORKFLOW.md를 읽으라고만 적음. `{{PLUGIN_ROOT}}`와 `{{SETUP_STAMP}}`는 저장할 때 플러그인 폴더와 현재 설치 스탬프로 바꿈. `pstack activated`라는 말을 넣지 않음 | 직접 수정 |
+| `harness/DIRECT-SKILL.md` | `skills/pstack-<이름>/SKILL.md` 템플릿. WORKFLOW.md를 끝까지 읽고 따른 뒤 그 `## Rules`대로 그 스킬을 실행하라고만 적음. `pstack activated`라는 말을 넣지 않음 | 직접 수정 |
 | `harness/direct-skills.json` | `$pstack-<이름>`으로 바로 고를 수 있는 스킬과 그 한 줄 설명(100자 이내) | 직접 수정 |
 | `harness/excluded-skills.json` | 플러그인에 넣지 않을 업스트림 스킬. sync는 가져오지 않고, 빌드는 `upstream/skills/`에 남아 있으면 실패 | 직접 수정 |
 | `harness/INSTALL.md` | 설치와 업데이트 뒤 동기화를 함께 맡는 절차. 없는 프로그램 확인, 워크플로우와 에이전트 생성과 갱신 | 직접 수정 |
