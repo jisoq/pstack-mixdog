@@ -1,8 +1,8 @@
 # pstack rules
 
-The Poteto mode workflow and each `$pstack-<name>` skill send their reader here. `<root>` is the plugin folder, one level above the folder of this file.
+The Poteto mode workflow sends its reader here. `<root>` is the plugin folder, one level above the folder of this file.
 
-The current setup stamp is `f667c170`.
+The current setup stamp is `c0f14cf9`.
 
 When this conversation's Active Workflow is Poteto mode and its text does not name the current setup stamp, follow `<root>/harness/INSTALL.md` before anything else, unless you already followed it in this conversation.
 

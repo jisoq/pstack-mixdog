@@ -10,9 +10,9 @@ Mixdog 대화창에서 한 번만 요청하면 됩니다.
 
 필요한 프로그램(git, GitHub CLI, Node, Bun, bash, jq, mise) 중 없는 것은 어디에 쓰는지 설명하고 설치할지 묻습니다. 이어서 Poteto mode 워크플로우와 pstack 전용 에이전트 다섯 개를 만듭니다. 에이전트는 꺼진 상태로 만들어지니, 설치 뒤 아래 [모델](#모델)대로 모델을 고르고 켜 주세요. 건너뛴 프로그램은 같은 요청을 다시 하면 설치할 수 있습니다.
 
-업데이트는 "pstack 플러그인 업데이트해줘"라고 요청하면 됩니다. 따로 할 일 없이 다음 작업부터 새 버전이 적용됩니다. 에이전트나 설치 절차가 바뀐 업데이트라면 다음 Poteto mode 대화가 알아서 맞춥니다. Poteto mode 없이 `$pstack-<이름>` 스킬만 쓴다면, 에이전트가 바뀐 업데이트 뒤 "설치된 플러그인 폴더의 `harness/INSTALL.md`를 다시 따라줘"라고 요청해 주세요.
+업데이트는 "pstack 플러그인 업데이트해줘"라고 요청하면 됩니다. 따로 할 일 없이 다음 작업부터 새 버전이 적용됩니다. 에이전트나 설치 절차가 바뀐 업데이트라면 다음 Poteto mode 대화가 알아서 맞춥니다.
 
-pstack이 맡은 작업은 첫 메시지의 첫 줄이 `pstack activated`입니다. pstack의 규칙 파일을 끝까지 읽었다는 표시이니, 이 줄이 없으면 그 작업은 규칙을 읽지 않고 진행된 것입니다.
+Poteto mode 작업은 첫 메시지의 첫 줄이 `pstack activated`입니다. pstack의 규칙 파일을 끝까지 읽었다는 표시이니, 이 줄이 없으면 그 작업은 규칙을 읽지 않고 진행된 것입니다. Poteto mode가 아닌 대화에서 `$p-<이름>` 스킬은 규칙 파일 없이 그 스킬만 실행하므로 이 줄이 나오지 않습니다.
 
 ## 사용법
 
@@ -20,11 +20,13 @@ pstack이 맡은 작업은 첫 메시지의 첫 줄이 `pstack activated`입니�
 | --- | --- |
 | 대화 전체를 pstack으로 처리 | 워크플로우 선택기에서 **Poteto mode** 선택 |
 | 특정 스킬 실행 | Poteto mode 대화에서 `/how <질문>`, `/arena <과제>`처럼 입력 |
-| 아무 대화에서 바로 실행 | `$pstack-<이름> <작업>` |
+| 아무 대화에서 바로 실행 | `$p-<이름> <작업>` |
 
-pstack은 대화 전체를 Poteto mode로 시작하거나, 아무 대화에서 `$pstack-<이름>` 스킬로 시작합니다. `$pstack-<이름>`으로 바로 실행할 수 있는 스킬은 `automate-me`, `blast-radius`, `bro`, `correct`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `maintain-verification-skill`, `poteto-help`, `recall`, `sharpen`, `statechart`, `teach`, `typescript-best-practices`, `unslop` 17개입니다. 나머지 스킬은 Poteto mode 대화에서 `/<이름>`으로 입력합니다.
+pstack은 대화 전체를 Poteto mode로 시작하거나, 아무 대화에서 `$p-<이름>` 스킬로 시작합니다. `$p-<이름>`은 규칙 파일 없이 그 스킬만 실행하고, 대화의 워크플로우와 다음 요청에는 영향을 주지 않습니다. 이렇게 바로 실행할 수 있는 스킬은 `automate-me`, `bro`, `create-formal-verification-skill`, `create-verification-skill`, `in-your-own-words`, `ketchup-video`, `maintain-formal-verification-skill`, `sharpen`, `statechart`, `typescript-best-practices`, `unslop` 11개입니다.
 
-pstack은 Poteto mode 대화와 `$pstack-<이름>`을 고른 작업에만 개입합니다. 전역 워크플로우와 다른 에이전트 설정은 바꾸지 않습니다.
+나머지 스킬은 Poteto mode 대화에서 `/<이름>`으로 입력합니다. pstack 에이전트를 띄우거나, 커밋하거나, Poteto mode로 이어지는 `blast-radius`, `correct`, `maintain-verification-skill`, `poteto-help`, `recall`, `teach`도 여기에 속합니다.
+
+pstack은 Poteto mode 대화와 `$p-<이름>`을 고른 작업에만 개입합니다. 전역 워크플로우와 다른 에이전트 설정은 바꾸지 않습니다.
 
 ## 모델
 

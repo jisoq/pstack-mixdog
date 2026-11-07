@@ -1,0 +1,13 @@
+{
+  "automate-me": "Turn your preferences and working style into a personal mode skill, or refresh it from recent chats.",
+  "bro": "Restate the last message in plain language, with no jargon.",
+  "create-formal-verification-skill": "Generate a project skill that formally verifies the risky code that tests reach least.",
+  "create-verification-skill": "Generate a project skill that proves app behavior by driving the app the way a user does.",
+  "in-your-own-words": "Restate the user's goals and the problem they are solving, in your own words.",
+  "ketchup-video": "Catch up on what happened with a short subtitled slide video, and the waiting decisions as text.",
+  "maintain-formal-verification-skill": "Bring formal verification back in line with changed code, and tell model drift from real bugs.",
+  "sharpen": "Make a task deeper, not bigger, then rewrite its prompt.",
+  "statechart": "Check a TLA+ model of a system that moves between states, and draw it as a Mermaid statechart.",
+  "typescript-best-practices": "TypeScript best practices for reading or editing .ts and .tsx files.",
+  "unslop": "Cut AI writing tells from a draft, a PR description, or docs, keeping the meaning and tone."
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Generates the Mixdog plugin's plugin.json and $pstack-<name> skills from upstream/ and harness/, and checks that
+// Generates the Mixdog plugin's plugin.json and $p-<name> skills from upstream/ and harness/, and checks that
 // upstream/, the hand-ported pstack text that scripts/sync.mjs merges from cursor/plugins, is ready to ship.
 
 import { createHash } from "node:crypto";
@@ -95,8 +95,8 @@ function main() {
   const lock = JSON.parse(readFileSync(LOCK, "utf8"));
   const manifest = JSON.parse(readFileSync(join(UPSTREAM, "plugin.json"), "utf8"));
   const excludedList = join(HARNESS, "excluded-skills.json");
-  const directList = join(HARNESS, "direct-skills.json");
-  const directTemplate = join(HARNESS, "DIRECT-SKILL.md");
+  const standaloneList = join(HARNESS, "standalone-skills.json");
+  const standaloneTemplate = join(HARNESS, "STANDALONE-SKILL.md");
   const excluded = JSON.parse(readFileSync(excludedList, "utf8"));
   const terms = JSON.parse(readFileSync(join(HARNESS, "cursor-terms.json"), "utf8")).map(({ key, re, everywhere }) => ({ key, re: new RegExp(re), everywhere }));
   // Code and the harness's own text legitimately use some listed words, such as a cursor variable or a model id.
@@ -136,21 +136,22 @@ function main() {
   const author = `${upstreamAuthor} (ported to Mixdog by ${PORT_AUTHOR})`;
   const plugin = { name: "pstack-mixdog", displayName: "pstack-mixdog", version, description, author, homepage, repository: PLUGIN_REPOSITORY, license, keywords };
   const rendered = new Map([["plugin.json", textFile(`${JSON.stringify(plugin, null, 2)}\n`)]]);
-  const template = readFileSync(directTemplate, "utf8");
-  for (const [name, description] of Object.entries(JSON.parse(readFileSync(directList, "utf8")))) {
-    if (excluded.includes(name)) problems.push(`${show(directList)} lists ${name}, which ${show(excludedList)} excludes`);
-    else if (!skills.includes(name)) problems.push(`${show(directList)} lists ${name}, which is not a pstack skill in ${SOURCE}/skills`);
-    if (typeof description !== "string" || description.trim() === "") problems.push(`${show(directList)} has no description for ${name}`);
-    else if (/[\r\n]/.test(description)) problems.push(`${show(directList)} has a multi-line description for ${name}`);
+  // A $p-<name> skill runs its skill alone, without WORKFLOW.md. Skills that need its rules run only in Poteto mode.
+  const template = readFileSync(standaloneTemplate, "utf8");
+  for (const [name, description] of Object.entries(JSON.parse(readFileSync(standaloneList, "utf8")))) {
+    if (excluded.includes(name)) problems.push(`${show(standaloneList)} lists ${name}, which ${show(excludedList)} excludes`);
+    else if (!skills.includes(name)) problems.push(`${show(standaloneList)} lists ${name}, which is not a pstack skill in ${SOURCE}/skills`);
+    if (typeof description !== "string" || description.trim() === "") problems.push(`${show(standaloneList)} has no description for ${name}`);
+    else if (/[\r\n]/.test(description)) problems.push(`${show(standaloneList)} has a multi-line description for ${name}`);
     else if (description.length > DESCRIPTION_MAX) {
-      problems.push(`${show(directList)} has a ${description.length}-character description for ${name}, over ${DESCRIPTION_MAX}`);
+      problems.push(`${show(standaloneList)} has a ${description.length}-character description for ${name}, over ${DESCRIPTION_MAX}`);
     }
     if (typeof description === "string" && /[<>]/.test(description)) {
-      problems.push(`${show(directList)} has a description with < or > for ${name}, which Mixdog's skill validator rejects`);
+      problems.push(`${show(standaloneList)} has a description with < or > for ${name}, which Mixdog's skill validator rejects`);
     }
     // A JSON string is a YAML double-quoted scalar, so any one-line description stays one frontmatter value.
     const text = template.replaceAll("{{NAME}}", () => name).replaceAll("{{DESCRIPTION}}", () => JSON.stringify(description));
-    rendered.set(`skills/pstack-${name}/SKILL.md`, textFile(text));
+    rendered.set(`skills/p-${name}/SKILL.md`, textFile(text));
   }
 
   // A relative link resolves from the plugin folder, with the generated files as this build writes them.
@@ -181,16 +182,16 @@ function main() {
     }
   }
   // The workflow and install read these; PORTING.md and cursor-terms.json name Cursor on purpose.
-  for (const path of [...STAMPED, RULES, "DIRECT-SKILL.md", "excluded-skills.json", "direct-skills.json"].map((name) => join(HARNESS, name))) {
+  for (const path of [...STAMPED, RULES, "STANDALONE-SKILL.md", "excluded-skills.json", "standalone-skills.json"].map((name) => join(HARNESS, name))) {
     scan(show(path), readFileSync(path, "utf8"), anywhere);
   }
   for (const [path, { bytes }] of rendered) {
     if (!path.endsWith(".md")) continue;
     const text = bytes.toString("utf8");
-    for (const placeholder of new Set(text.match(PLACEHOLDER))) problems.push(`${show(directTemplate)} has unfilled placeholder ${placeholder}`);
+    for (const placeholder of new Set(text.match(PLACEHOLDER))) problems.push(`${show(standaloneTemplate)} has unfilled placeholder ${placeholder}`);
     for (const [, inline, reference] of text.matchAll(LINK)) {
       const href = inline ?? reference;
-      if (!resolves(path, href)) problems.push(`${show(directTemplate)} links to ${href}, which does not exist`);
+      if (!resolves(path, href)) problems.push(`${show(standaloneTemplate)} links to ${href}, which does not exist`);
     }
   }
   if (problems.length > 0) return fail(problems);
@@ -237,7 +238,7 @@ function main() {
     if (have) changed++;
     else added++;
   }
-  console.log(`${skills.length} skills, ${rendered.size - 1} $pstack-<name> skills; ${where}: ${added} added, ${changed} changed, ${deleted} deleted`);
+  console.log(`${skills.length} skills, ${rendered.size - 1} $p-<name> skills; ${where}: ${added} added, ${changed} changed, ${deleted} deleted`);
   return 0;
 }
 

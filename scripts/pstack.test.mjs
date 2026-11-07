@@ -45,9 +45,9 @@ const HARNESS = {
   "agents.md": "# agents\n",
   "INSTALL.md": "# install\n",
   "PORTING.md": "# Porting\n\n## Roles\n",
-  "DIRECT-SKILL.md": readFileSync(join(REAL_HARNESS, "DIRECT-SKILL.md"), "utf8"),
+  "STANDALONE-SKILL.md": readFileSync(join(REAL_HARNESS, "STANDALONE-SKILL.md"), "utf8"),
   "cursor-terms.json": readFileSync(join(REAL_HARNESS, "cursor-terms.json"), "utf8"),
-  "direct-skills.json": "{}\n",
+  "standalone-skills.json": "{}\n",
   "excluded-skills.json": "[]\n",
 };
 
@@ -132,7 +132,7 @@ describe("build", () => {
     const p = project(t);
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /^2 skills, 0 \$pstack-<name> skills; .*: 1 added, 0 changed, 0 deleted$/m);
+    assert.match(result.stdout, /^2 skills, 0 \$p-<name> skills; .*: 1 added, 0 changed, 0 deleted$/m);
 
     const { description, homepage, license, keywords } = MANIFEST;
     const plugin = {
@@ -182,21 +182,20 @@ describe("build", () => {
     assert.deepEqual(fails(missing), expected(harness));
   });
 
-  test("renders a $pstack-<name> skill for each listed skill that sends its reader through WORKFLOW.md in full, then the skill", (t) => {
+  test("renders a $p-<name> skill for each listed skill that reads the skill itself, without WORKFLOW.md", (t) => {
     const description = `Run beta's "plain" steps: one line.`;
-    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ beta: description }) } });
+    const p = project(t, { harness: { "standalone-skills.json": JSON.stringify({ beta: description }) } });
     const result = p.build();
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(readdirSync(join(p.root, "skills")), ["pstack-beta"]);
-    const wrapper = p.read("skills/pstack-beta/SKILL.md");
+    assert.match(result.stdout, /^2 skills, 1 \$p-<name> skills; /m);
+    assert.deepEqual(readdirSync(join(p.root, "skills")), ["p-beta"]);
+    const wrapper = p.read("skills/p-beta/SKILL.md");
     const fields = frontmatter(wrapper);
-    assert.equal(fields.name, "pstack-beta");
+    assert.equal(fields.name, "p-beta");
     assert.equal(fields.description, description);
-    assert.equal(fields.when_to_use, "User selects $pstack-beta; never inferred from the task.");
-    const start = wrapper.indexOf("Read `<root>/harness/WORKFLOW.md` in full and follow it for this task");
-    assert.ok(start !== -1, wrapper);
-    assert.ok(wrapper.indexOf("run the `beta` skill as its `## Rules` section says") > start, wrapper);
-    assert.match(readFileSync(join(REAL_HARNESS, "WORKFLOW.md"), "utf8"), /^## Rules$/m);
+    assert.equal(fields.when_to_use, "User selects $p-beta; never inferred from the task.");
+    assert.ok(wrapper.includes("`~/.mixdog/data/skills/pstack-custom-beta/SKILL.md` when the user keeps that copy, otherwise `<root>/upstream/skills/beta/SKILL.md`"), wrapper);
+    assert.ok(!wrapper.includes("WORKFLOW.md"), wrapper);
     assert.equal(p.build("--check").status, 0);
   });
 
@@ -257,7 +256,7 @@ describe("build", () => {
     );
   });
 
-  test("fails on a relative link that resolves to no path in skills, agents, or the $pstack-<name> template", (t) => {
+  test("fails on a relative link that resolves to no path in skills, agents, or the $p-<name> template", (t) => {
     const p = project(t, {
       upstream: {
         ...SOURCE,
@@ -265,8 +264,8 @@ describe("build", () => {
         "agents/reviewer.md": "# reviewer\n\n[missing](missing.md)\n",
       },
       harness: {
-        "direct-skills.json": JSON.stringify({ alpha: "Run alpha." }),
-        "DIRECT-SKILL.md": "---\nname: pstack-{{NAME}}\n---\n\n[skill](../../upstream/skills/{{NAME}}/SKILL.md), [plugin](../../plugin.json), [entry](../../upstream/docs/harness/mixdog-entry.md)\n",
+        "standalone-skills.json": JSON.stringify({ alpha: "Run alpha." }),
+        "STANDALONE-SKILL.md": "---\nname: p-{{NAME}}\n---\n\n[skill](../../upstream/skills/{{NAME}}/SKILL.md), [plugin](../../plugin.json), [entry](../../upstream/docs/harness/mixdog-entry.md)\n",
       },
     });
     const result = p.build();
@@ -277,7 +276,7 @@ describe("build", () => {
         "upstream/agents/reviewer.md links to missing.md, which does not exist",
         "upstream/skills/beta/SKILL.md links to ../gone/SKILL.md, which does not exist",
         "upstream/skills/beta/SKILL.md links to ../../../../outside.md, which does not exist",
-        `${join(p.harness, "DIRECT-SKILL.md")} links to ../../upstream/docs/harness/mixdog-entry.md, which does not exist`,
+        `${join(p.harness, "STANDALONE-SKILL.md")} links to ../../upstream/docs/harness/mixdog-entry.md, which does not exist`,
       ].sort(),
     );
   });
@@ -318,13 +317,13 @@ describe("build", () => {
       },
       harness: {
         "excluded-skills.json": JSON.stringify(["gamma"]),
-        "direct-skills.json": JSON.stringify({ omega: "Run omega.", gamma: "Run gamma.", alpha: "a".repeat(101), beta: "Run <beta> steps." }),
-        "DIRECT-SKILL.md": "---\nname: pstack-{{NAME}}\n---\n\n{{UNKNOWN}}\n",
+        "standalone-skills.json": JSON.stringify({ omega: "Run omega.", gamma: "Run gamma.", alpha: "a".repeat(101), beta: "Run <beta> steps." }),
+        "STANDALONE-SKILL.md": "---\nname: p-{{NAME}}\n---\n\n{{UNKNOWN}}\n",
       },
     });
     const result = p.build();
     assert.equal(result.status, 1);
-    const [direct, excluded, template] = ["direct-skills.json", "excluded-skills.json", "DIRECT-SKILL.md"].map((name) => join(p.harness, name));
+    const [direct, excluded, template] = ["standalone-skills.json", "excluded-skills.json", "STANDALONE-SKILL.md"].map((name) => join(p.harness, name));
     assert.deepEqual(fails(result), [
       "upstream/skills/Bad_Name is not lowercase words joined by hyphens, at most 64 characters",
       'upstream/skills/beta/SKILL.md has name "Beta", not its folder name beta',
@@ -340,7 +339,7 @@ describe("build", () => {
   });
 
   test("--check reports drift only in plugin.json and skills/, and a build reconciles them in place", (t) => {
-    const p = project(t, { harness: { "direct-skills.json": JSON.stringify({ alpha: "Run alpha.", beta: "Run beta." }) } });
+    const p = project(t, { harness: { "standalone-skills.json": JSON.stringify({ alpha: "Run alpha.", beta: "Run beta." }) } });
     const before = p.build("--check");
     assert.equal(before.status, 1);
     assert.match(before.stdout, /\/plugin\.json$/m);
@@ -358,7 +357,7 @@ describe("build", () => {
     };
     write(p.root, { ...unrelated, "plugin.json": "edited\n", "skills/old/SKILL.md": "stale\n" });
     const old = new Date(2000, 0, 1);
-    for (const path of [...Object.keys(unrelated), "skills/pstack-alpha/SKILL.md"]) utimesSync(join(p.root, path), old, old);
+    for (const path of [...Object.keys(unrelated), "skills/p-alpha/SKILL.md"]) utimesSync(join(p.root, path), old, old);
     const rootId = statSync(p.root, { bigint: true }).ino;
     const drift = p.build("--check");
     assert.equal(drift.status, 1);
@@ -367,12 +366,12 @@ describe("build", () => {
     assert.match(drift.stdout, /out of date in 2 paths/);
     assert.equal(p.read("plugin.json"), "edited\n");
 
-    write(p.harness, { "direct-skills.json": JSON.stringify({ alpha: "Run alpha." }) });
+    write(p.harness, { "standalone-skills.json": JSON.stringify({ alpha: "Run alpha." }) });
     const rebuild = p.build();
     assert.equal(rebuild.status, 0, rebuild.stdout + rebuild.stderr);
     assert.match(rebuild.stdout, /: 0 added, 1 changed, 2 deleted$/m);
-    assert.deepEqual(readdirSync(join(p.root, "skills")), ["pstack-alpha"]);
-    assert.equal(statSync(join(p.root, "skills/pstack-alpha/SKILL.md")).mtime.getFullYear(), 2000);
+    assert.deepEqual(readdirSync(join(p.root, "skills")), ["p-alpha"]);
+    assert.equal(statSync(join(p.root, "skills/p-alpha/SKILL.md")).mtime.getFullYear(), 2000);
     assert.equal(statSync(p.root, { bigint: true }).ino, rootId);
     for (const [path, content] of Object.entries(unrelated)) {
       assert.equal(p.read(path), content, path);
@@ -397,7 +396,7 @@ describe("harness", () => {
   test("WORKFLOW.md ends by asking for the pstack activated marker, which only a reader of it can know", () => {
     const marker = real("WORKFLOW.md").trimEnd().split("\n").at(-1).match(/first line of your first message on the task is exactly `([^`]+)`\.$/)?.[1];
     assert.equal(marker, "pstack activated");
-    for (const name of ["SAVED-WORKFLOW.md", "DIRECT-SKILL.md"]) assert.ok(!real(name).includes(marker), name);
+    for (const name of ["SAVED-WORKFLOW.md", "STANDALONE-SKILL.md"]) assert.ok(!real(name).includes(marker), name);
   });
 });
 
